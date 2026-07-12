@@ -461,7 +461,6 @@ class Main {
         } else {
             $("#login-display-class").text("未ログイン");
             $("#login-display-name").text("ゲスト");
-            this.$teacherMenuBox.addClass("d-none");
             this.$teacherSidebar.addClass("d-none");
             $("body").removeClass("has-teacher-sidebar");
             this.$studentControlPanel.addClass("d-none"); // 未ログイン時は非表示
@@ -598,10 +597,6 @@ class Main {
             this.$studentControlPanel.addClass("d-none");
             // 設定無効化を解除（ゲスト状態なので一応有効に）
             $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
-
-            this.$teacherStudentSelect.empty().append(
-                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
-            );
             $(".paper-print-header").remove();
 
             // エディタをクリア
