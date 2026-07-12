@@ -13,45 +13,11 @@ export class SaveHandler {
     }
 
     save() {
-        // 教師用アカウントまたは未ログイン時はローカルストレージへの書き込みをガード
-        const studentId = window.localStorage.getItem("genko_studentId");
-        if (studentId === "0" || studentId === 0) {
-            return;
-        }
-
-        var data = {
-            rev: 2,
-            genkoSettings: {
-                colSize: this.genko.colSize,
-                rowSize: this.genko.rowSize,
-                featuringColor: this.genko.featuringColor,
-                featuringFont: this.genko.featuringFont,
-                featuringFontRoman: this.genko.featuringFontRoman,
-                cellOptions: this.genko.cellOptions,
-                selectionStyle: this.genko.selectionStyle,
-            },
-            genkoText: this.genko.text.getText().toString(),
-            appSettings: {
-                wallpaper: this.settings.wallpaper,
-                lightColor: this.settings.lightColor
-            }
-        }
-
-        window.localStorage.setItem(SaveHandler.STORAGE_KEY, JSON.stringify(data));
+        // スプレッドシート連携時の競合防止のため、ローカル（ブラウザ）への保存は一切行いません
     }
 
     load() {
-        // ログイン状態であれば、起動時の古いローカル一時保存からのロードをスキップ（スプレッドシートを正本とする）
-        const studentId = window.localStorage.getItem("genko_studentId");
-        if (studentId) {
-            return;
-        }
-
-        var data = JSON.parse(window.localStorage.getItem(SaveHandler.STORAGE_KEY));
-        if (!data) return;
-        this.genko.setOptions(data.genkoSettings);
-        this.genko.setText(data.genkoText);
-        $.extend(this.settings, data.appSettings);
+        // スプレッドシート連携時の競合防止のため、ローカル（ブラウザ）からの読み込みは一切行いません
     }
 }
 
