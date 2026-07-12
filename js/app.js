@@ -72,7 +72,7 @@ class Main {
         // 印刷イベントをフックして、ブラウザ標準の印刷時にもヘッダー/フッターのURL印字を完全に防ぐ
         window.onbeforeprint = () => {
             window.originalTitleForPrint = document.title;
-            document.title = " ";
+            document.title = "作文";
         };
         window.onafterprint = () => {
             if (window.originalTitleForPrint !== undefined) {
