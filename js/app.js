@@ -38,6 +38,11 @@ class Main {
         this.$completeBtn = $("#completeBtn").click(this.onCompleteToggleClicked.bind(this));
         this.isCompletedStatus = false; // できた！（完成）フラグ
 
+        // 保存ステータスボタンのバインド
+        this.$saveStatusBtnWrapper = $("#save-status-btn-wrapper");
+        this.$saveStatusBtn = $("#saveStatusBtn").click(this.onSaveStatusBtnClicked.bind(this));
+        this.saveStatus = "saved"; // "saved", "dirty", "saving", "error"
+
         // ログイン要素の初期化
         this.$dialogLogin = $("#dialog-login").modal({show: false, backdrop: 'static', keyboard: false});
         $("#loginForm").submit(this.onLoginSubmitted.bind(this));
@@ -126,11 +131,13 @@ class Main {
 
     onUndoClicked() {
         this.genko.undo();
+        this.updateSaveStatus("dirty");
         this.triggerAutoSaveToServer();
     }
 
     onRedoClicked() {
         this.genko.redo();
+        this.updateSaveStatus("dirty");
         this.triggerAutoSaveToServer();
     }
 
@@ -441,6 +448,7 @@ class Main {
             if (studentId === "0" || studentId === 0) {
                 this.$teacherMenuBox.removeClass("d-none");
                 this.$completeBtnWrapper.addClass("d-none"); // 先生用画面ではできた！ボタンは非表示
+                this.$saveStatusBtnWrapper.addClass("d-none"); // 先生用画面では保存ステータスは非表示
                 // 先生用ワークスペースの初期化（サイドバーの構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
@@ -448,6 +456,8 @@ class Main {
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$completeBtnWrapper.removeClass("d-none"); // 児童用画面ではできた！ボタンを表示
+                this.$saveStatusBtnWrapper.removeClass("d-none"); // 児童用画面では保存ステータスを表示
+                this.updateSaveStatus("saved");
             }
             
             this.$dialogLogin.modal("hide");
@@ -458,6 +468,7 @@ class Main {
             this.$teacherSidebar.addClass("d-none");
             $("body").removeClass("has-teacher-sidebar");
             this.$completeBtnWrapper.addClass("d-none"); // 未ログイン時は非表示
+            this.$saveStatusBtnWrapper.addClass("d-none"); // 未ログイン時は非表示
             this.$dialogLogin.modal("show");
             // 未ログインの場合、サーバーから児童名簿を読み込む
             await this.loadStudentRoster();
@@ -590,6 +601,7 @@ class Main {
             this.$teacherCommentText.text("");
             this.$teacherMenuBox.addClass("d-none");
             this.$completeBtnWrapper.addClass("d-none");
+            this.$saveStatusBtnWrapper.addClass("d-none");
 
             this.$teacherStudentSelect.empty().append(
                 $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
@@ -606,6 +618,7 @@ class Main {
     }
 
     onInputChanged(e) {
+        this.updateSaveStatus("dirty");
         this.triggerAutoSaveToServer();
     }
 
@@ -640,6 +653,7 @@ class Main {
                     isCompleted: this.isCompletedStatus // できた！ステータスをsettingsの一部として保存
                 };
 
+                this.updateSaveStatus("saving");
                 try {
                     const response = await fetch(GAS_URL, {
                         method: "POST",
@@ -660,11 +674,14 @@ class Main {
                     const res = await response.json();
                     if (res.status === "success") {
                         console.log("スプレッドシートへの自動保存に成功しました");
+                        this.updateSaveStatus("saved");
                     } else {
                         console.warn("自動保存失敗:", res.message);
+                        this.updateSaveStatus("error");
                     }
                 } catch (err) {
                     console.error("自動保存エラー:", err);
+                    this.updateSaveStatus("error");
                 }
             }
         };
@@ -944,6 +961,42 @@ class Main {
                 .removeClass("status-complete")
                 .addClass("status-incomplete")
                 .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>');
+        }
+    }
+
+    onSaveStatusBtnClicked(e) {
+        e.preventDefault();
+        this.triggerAutoSaveToServer(true);
+    }
+
+    updateSaveStatus(status) {
+        this.saveStatus = status;
+        const $btn = this.$saveStatusBtn;
+        
+        if (status === "saved") {
+            $btn.removeClass("btn-primary btn-warning btn-danger")
+                .addClass("btn-outline-success")
+                .css("background-color", "white")
+                .html('<i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>保存済み</strong>');
+            $btn.prop("disabled", false);
+        } else if (status === "dirty") {
+            $btn.removeClass("btn-outline-success btn-warning btn-danger")
+                .addClass("btn-primary")
+                .css("background-color", "")
+                .html('<i class="fa fa-cloud-upload fa-lg mr-1"></i>&nbsp;<strong>保存する</strong>');
+            $btn.prop("disabled", false);
+        } else if (status === "saving") {
+            $btn.removeClass("btn-outline-success btn-primary btn-danger")
+                .addClass("btn-warning")
+                .css("background-color", "")
+                .html('<i class="fa fa-spinner fa-spin fa-lg mr-1"></i>&nbsp;<strong>保存中...</strong>');
+            $btn.prop("disabled", true);
+        } else if (status === "error") {
+            $btn.removeClass("btn-outline-success btn-primary btn-warning")
+                .addClass("btn-danger")
+                .css("background-color", "")
+                .html('<i class="fa fa-exclamation-triangle fa-lg mr-1"></i>&nbsp;<strong>保存失敗 (再試行)</strong>');
+            $btn.prop("disabled", false);
         }
     }
 }
