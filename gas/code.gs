@@ -1,4 +1,4 @@
-﻿function doPost(e) {
+function doPost(e) {
   try {
     var params = JSON.parse(e.postData.contents);
     var action = params.action || "save";
@@ -89,9 +89,10 @@
           students[classNum] = [];
         }
         
-        // 個人情報保護のため、出席番号のみをリストに追加し、氏名は含めない
+        // ユーザーの要望により氏名（C列: data[i][2]）もリストに含める
         students[classNum].push({
-          id: studentId
+          id: studentId,
+          name: data[i][2] ? data[i][2].toString().trim() : ""
         });
       }
       
@@ -122,7 +123,7 @@
           var dbPassword = data[i][3] ? data[i][3].toString().trim() : "";
           if (dbPassword === password) {
             authSuccess = true;
-            // ログイン成功と同時に、同じ行のG列(本文)とH列(設定)からデータを取得してロードする
+            // ログイン成功と同時に、同じ行 of のG列(本文)とH列(設定)からデータを取得してロードする
             savedData = {
               classNumber: data[i][0],
               studentId: data[i][1],
@@ -151,6 +152,54 @@
         studentName: studentName,
         data: savedData
       })).setMimeType(ContentService.MimeType.JSON);
+
+    } else if (action === "get_all_writings") {
+      var classNumber = normalizeClass(params.classNumber);
+      var data = sheet.getDataRange().getValues();
+      var writings = [];
+      
+      for (var i = 1; i < data.length; i++) {
+        if (normalizeClass(data[i][0]) == classNumber) {
+          writings.push({
+            studentId: data[i][1],
+            studentName: data[i][2] ? data[i][2].toString().trim() : "",
+            charCount: data[i][5] || 0,
+            text: data[i][6] || "",
+            settings: data[i][7] || null
+          });
+        }
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", data: writings }))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } else if (action === "get_student_writing") {
+      var classNumber = normalizeClass(params.classNumber);
+      var studentId = params.studentId;
+      var data = sheet.getDataRange().getValues();
+      var result = null;
+      
+      for (var i = 1; i < data.length; i++) {
+        if (normalizeClass(data[i][0]) == classNumber && data[i][1] == studentId) {
+          result = {
+            classNumber: data[i][0],
+            studentId: data[i][1],
+            studentName: data[i][2],
+            charCount: data[i][5] || 0,
+            text: data[i][6] || "",
+            settings: data[i][7] || null
+          };
+          break;
+        }
+      }
+      
+      if (result) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "データが見つかりません" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
   } catch(error) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))

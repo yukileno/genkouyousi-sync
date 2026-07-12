@@ -765,6 +765,11 @@ class Main {
         await this.startProcessing("backdrop-loading");
 
         try {
+            // 名簿データがまだロードされていない場合はロードする (リロード対策)
+            if (!this.studentRoster) {
+                await this.loadStudentRoster();
+            }
+
             // 各児童の提出状況（誰が作文を書いているか、完成しているか）を色分けするため、一括ステータスをロード
             const response = await fetch(GAS_URL, {
                 method: "POST",
