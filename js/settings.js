@@ -201,6 +201,15 @@ export class Settings {
 
         // genkoオブジェクトに設定を適用
         this.genko.setOptions(genkoSettings);
+
+        // 罫線色、フォント、選択範囲スタイルを実際に適用
+        if (this.genko.featuringColor) {
+            this.genko.setColor(this.genko.featuringColor);
+        }
+        this.genko.updateFont();
+        if (this.genko.selectionStyle) {
+            this.genko.setSelectionStyle(this.genko.selectionStyle);
+        }
         
         // paramsを同期
         this.params.rows = this.genko.rowSize;

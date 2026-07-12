@@ -444,6 +444,7 @@ class Main {
             // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
             if (studentId === "99" || studentId === 99) {
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
+                $("#controlPane, #sharePane").removeClass("d-none"); // 設定・共有タブを表示
                 // 設定変更を許可する
                 $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
                 // 先生用ワークスペースの初期化（サイドバーを構築）
@@ -452,6 +453,7 @@ class Main {
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
+                $("#controlPane, #sharePane").addClass("d-none"); // 児童画面では設定・共有タブを非表示に！
                 // 児童は設定を変更できないように一部コントロールを無効化
                 $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", true);
                 this.updateSaveStatus("saved");
@@ -464,6 +466,7 @@ class Main {
             this.$teacherSidebar.addClass("d-none");
             $("body").removeClass("has-teacher-sidebar");
             this.$studentControlPanel.addClass("d-none"); // 未ログイン時は非表示
+            $("#controlPane, #sharePane").removeClass("d-none"); // ログイン前は表示
             this.$dialogLogin.modal("show");
             // 未ログインの場合、サーバーから児童名簿を読み込む
             await this.loadStudentRoster();
@@ -595,6 +598,7 @@ class Main {
             this.$teacherCommentBox.addClass("d-none");
             this.$teacherCommentText.text("");
             this.$studentControlPanel.addClass("d-none");
+            $("#controlPane, #sharePane").removeClass("d-none"); // ログアウト後は再表示
             // 設定無効化を解除（ゲスト状態なので一応有効に）
             $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
             $(".paper-print-header").remove();
@@ -632,11 +636,15 @@ class Main {
                     genkoSettings: {
                         colSize: this.genko.colSize,
                         rowSize: this.genko.rowSize,
-                        featuringColor: this.genko.$container.find(".genko-cell").css("border-color"),
-                        featuringFont: this.settings.featuringFont
+                        featuringColor: this.genko.featuringColor,
+                        featuringFont: this.genko.featuringFont,
+                        featuringFontRoman: this.genko.featuringFontRoman,
+                        cellOptions: this.genko.cellOptions,
+                        selectionStyle: this.genko.selectionStyle
                     },
                     appSettings: {
-                        wallpaper: this.settings.wallpaper
+                        wallpaper: this.settings.params.wallpaper,
+                        lightColor: this.settings.params.lightColor
                     },
                     isCompleted: isTeacher ? false : this.isCompletedStatus
                 };

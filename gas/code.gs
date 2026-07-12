@@ -18,7 +18,7 @@ function doPost(e) {
       var charCount = params.charCount;
       var text = params.text;
       var settings = params.settings;
-      var timestamp = new Date();
+      var timestamp = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy/MM/dd HH:mm");
       
       var data = sheet.getDataRange().getValues();
       var foundRow = -1;
