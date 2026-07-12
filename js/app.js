@@ -792,11 +792,6 @@ class Main {
             const res = await response.json();
             const writings = (res.status === "success" && res.data) ? res.data : [];
 
-            // 設定ドロワー内のセレクトボックスも初期化して充填（補助・同期用）
-            this.$teacherStudentSelect.empty().append(
-                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
-            );
-
             // クラス名簿を取得
             const students = this.studentRoster[classNum] || [];
             students.forEach(s => {
@@ -831,19 +826,6 @@ class Main {
                     }
 
                     $btn.append($infoSpan).append($badge).appendTo(this.$teacherSidebar);
-
-                    // 2. セレクトボックス（予備）の充填
-                    let statusSuffix = "";
-                    if (isCompleted) {
-                        statusSuffix = " 〇(できた！)";
-                    } else if (hasWriting) {
-                        statusSuffix = " 〇(書きかけ)";
-                    } else {
-                        statusSuffix = " (未入力)";
-                    }
-                    this.$teacherStudentSelect.append(
-                        $("<option>").val(s.id).text(`${s.id}番 ${studentName}${statusSuffix}`)
-                    );
                 }
             });
 
@@ -854,20 +836,12 @@ class Main {
         }
     }
 
-    onTeacherStudentSelected(e) {
-        const studentId = this.$teacherStudentSelect.val();
-        this.selectTeacherStudent(studentId);
-    }
-
     async selectTeacherStudent(studentId) {
         // サイドバーボタンのアクティブ表示切替
         this.$teacherSidebar.find(".student-list-item").removeClass("active");
         if (studentId) {
             this.$teacherSidebar.find(`.student-list-item[data-student-id="${studentId}"]`).addClass("active");
         }
-
-        // ドロワー内のセレクトボックスも同期
-        this.$teacherStudentSelect.val(studentId || "");
 
         $(".paper-print-header").remove(); // 古いヘッダーを削除
 
