@@ -527,8 +527,10 @@
     .bg-lighting,
     .bg-shade,
     .drawer,
-    .btn-desktop {
-        display: none;
+    .btn-desktop,
+    #student-control-panel,
+    #teacher-sidebar {
+        display: none !important;
     }
 
     .genko-paper {
