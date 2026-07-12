@@ -1,35 +1,74 @@
-# 原稿用紙ライター
-原稿用紙の見た目を模したテキストエディタです。Webブラウザにおける縦書きの実験作であり〝ネタアプリ〟です。
+# 原稿用紙ライター（スプレッドシート連携・学校教育向けカスタマイズ版）
 
-原稿用紙の書き方に則って『。」』の詰めやぶら下がり禁則処理、欧文の横書き、詰め書きに加え、組版でお馴染み縦中横にも対応。Unicodeの絵文字や異体字セレクタ、合字に変体仮名も扱えるようにし、思いつく限りの日本語のスタイルに対応してみました。。
+学校の授業（クラス単位）で、児童の作文執筆状況をGoogleスプレッドシートで一元管理・自動保存できる、教育現場向けの縦書き原稿用紙テキストエディタです。
 
-こちらで使えます。https://tsuteto.hacca.jp/genko/
+本プロジェクトは、tsuteto様作の「[原稿用紙ライター](https://github.com/tsuteto/GenkoyoshiWriter)」をベースに、Googleスプレッドシート同期機能や教師・児童間の連携機能を拡張・カスタマイズしたものです。
 
-*Genkoyoshi Writer*, a web app of Japanese style manuscript Genkoyoshi-like visual text editor.
+---
 
-## Support Browsers
-- Google Chrome
-- Firefox
-- Safari (Mac/iPad)
-- Edge
-## Dependencies
-### JS Libraries
-- unistring.js - https://github.com/akahuku/unistring
-- html2canvas - https://html2canvas.hertzen.com/
-- Bootstrap 4.1.3
-- jQuery 3.3.1
-- FontAwesome 4
-### Font
-As web font
-- Unicode変体仮名フォント - https://wakufactory.jp/densho/font/hentai/
-### Textures
-As background wallpaper or paper texture
-- BEIZ images - https://www.beiz.jp/
-- Subtle Patterns - https://www.subtlepatterns.com/
-- Paper-co - http://free-paper-texture.com/
-- Pixeden.com - Subtle Paper Tile Pattern Vol2 - http://www.pixeden.com/graphic-web-backgrounds/subtle-paper-tile-pattern-vol2
-## License
-MIT License
+## 🌟 主な機能と特徴
 
-# Acknowledgments
-See the manual on the app from the link above.
+### 1. 児童用画面（シンプル・安心設計）
+- **10秒自動保存 ＆ 手動保存ボタン**: 
+  キー入力をやめてから10秒後に自動保存が走るほか、右下の「保存する」ボタンをいつでも手動クリックして即時保存が可能です。児童の「保存されているか不安」という心配を解消し、サーバーの負荷を抑えつつ安全に執筆できます。
+- **「できた！」（提出）ボタン**: 
+  作文が完成したら「できた！」ボタンを押すことで、先生側の画面に提出完了マークがリアルタイムに表示されます。
+- **設定・共有機能のロック**: 
+  児童がログインすると、設定や共有などの不要なタブは自動的に非表示になり、設定ミスなどを防ぐためにデザインの変更がロックされます。
+
+### 2. 教師用管理画面（出席番号：99番）
+- **リアルタイム提出状況リスト（左側サイドバー）**: 
+  クラス名簿から児童の「氏名」と「現在の提出・執筆ステータス（できた！／書きかけ／未入力）」をリアルタイムで色分け一覧表示します。
+- **ワンクリック読み込み**: 
+  サイドバーの児童名をクリックするだけで、その児童の最新の作文データが原稿用紙に即座に読み込まれ、簡単に内容を確認・印刷できます。
+- **設定の一元適用（強制適用機能）**: 
+  先生（99番）が画面から変更した設定（原稿用紙のマス数、背景デザイン、フォント、罫線色、明るさ、禁則・ぶら下がりなどの文字組みオプション）は、クラスの児童全員に自動的に強制適用されます。
+
+### 3. 印刷機能の最適化
+- **不要なUIの自動カット**: 
+  印刷時には、操作ボタン類（できた！・保存など）や先生用サイドバーは自動的に完全に非表示になり、原稿用紙のみが綺麗に印刷されます。
+- **ヘッダー・フッターのクリーン化**: 
+  ブラウザの自動印刷機能によるページのURLや日付などの不要な文字の出力を抑え、左上にはシンプルに「作文」という文字だけが印字されます。
+- **児童用識別子を自動挿入**: 
+  各用紙の上部に「〇組 〇番 氏名」およびページ番号（例: 1/2）が自動的にレイアウト印字されます。
+
+---
+
+## 🛠️ システム構成と連携
+
+このアプリは、フロントエンド（HTML/JS）から **Google Apps Script (GAS)** のWebアプリAPIを呼び出すことで、**Googleスプレッドシート**を簡易データベースとして利用し、同期保存を実現しています。
+
+### 1. スプレッドシートの構造
+スプレッドシートの各シートには以下のヘッダーが必要です。
+- **A列**: クラス
+- **B列**: 出席番号 (※教師は `99`)
+- **C列**: 氏名
+- **D列**: パスワード
+- **E列**: 最終保存日時
+- **F列**: 文字数
+- **G列**: 本文
+- **H列**: 設定データ (※教師 99番のH列がクラス設定になります)
+- **I列**: 先生のアドバイス
+- **J列**: できたフラグ
+
+### 2. GAS（Google Apps Script）
+`gas/code.gs` にあるコードを、スプレッドシートの「Apps Script」に貼り付け、Webアプリとしてデプロイして使用します。
+
+---
+
+## 💻 動作要件
+
+- Google Chrome / Microsoft Edge / Safari / Firefox （最新版）
+- Googleアカウント（スプレッドシート・GASの管理用）
+
+---
+
+## 📜 ライセンス / 元の作品
+
+- **ベースコード**: [tsuteto/GenkoyoshiWriter](https://github.com/tsuteto/GenkoyoshiWriter) (MIT License)
+- **依存ライブラリ**:
+  - `unistring.js` (MIT)
+  - `html2canvas` (MIT)
+  - Bootstrap 4.1.3 / jQuery 3.3.1 / FontAwesome 4
+- **背景素材提供**: BEIZ images, Subtle Patterns, Paper-co, Pixeden.com
+- 本カスタマイズ版の追加・修正部分については、ベースリポジトリに準じMITライセンスとします。
