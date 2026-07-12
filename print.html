@@ -139,8 +139,13 @@
                 
                 // すべて完了したら印刷ダイアログを開く
                 setTimeout(() => {
+                    const originalTitle = document.title;
+                    document.title = " "; // 半角スペースにしてURLの自動出力を防ぎ、ヘッダーを完全に空欄にする
                     window.focus();
                     window.print();
+                    setTimeout(() => {
+                        document.title = originalTitle;
+                    }, 1000);
                 }, 1000);
             }
             
