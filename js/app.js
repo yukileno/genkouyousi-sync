@@ -33,13 +33,12 @@ class Main {
         this.$teacherStudentSelect = $("#teacher-student-select").change(this.onTeacherStudentSelected.bind(this));
         this.$teacherSidebar = $("#teacher-sidebar"); // 教師用児童切り替えサイドバー
 
-        // 児童用「できた！」ボタンのバインド
-        this.$completeBtnWrapper = $("#complete-btn-wrapper");
+        // 児童用コントロールパネルのバインド
+        this.$studentControlPanel = $("#student-control-panel");
         this.$completeBtn = $("#completeBtn").click(this.onCompleteToggleClicked.bind(this));
         this.isCompletedStatus = false; // できた！（完成）フラグ
 
         // 保存ステータスボタンのバインド
-        this.$saveStatusBtnWrapper = $("#save-status-btn-wrapper");
         this.$saveStatusBtn = $("#saveStatusBtn").click(this.onSaveStatusBtnClicked.bind(this));
         this.saveStatus = "saved"; // "saved", "dirty", "saving", "error"
 
@@ -956,7 +955,7 @@ class Main {
             this.$completeBtn
                 .removeClass("btn-success")
                 .addClass("btn-secondary")
-                .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！(まだだよ)</strong>');
+                .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>まだだよ</strong>');
         }
     }
 

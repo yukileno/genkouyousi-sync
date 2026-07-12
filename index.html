@@ -17,12 +17,6 @@
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
         <script type="module" src="js/app.js"></script>
-        <style>
-            #saveStatusBtn.btn-outline-success:hover {
-                background-color: #28a745 !important;
-                color: white !important;
-            }
-        </style>
     </head>
 
     <body>
@@ -286,7 +280,7 @@
         </div>
 
         <!-- 説明書タブ (非表示) -->
-        <div id="guidePane" class="drawer d-none">
+        <div id="guidePane" class="drawer" style="display: none;">
             <div class="drawer-container drawer-header"><div class="drawer-title">説明書</div></div>
             <div class="drawer-container">
                 <div class="drawer-accordion-box">
@@ -414,22 +408,62 @@
             <div id="printBtn" class="btn btn-desktop" data-label="印刷"><i class="fa fa-print"></i></div>
         </div>
 
-        <!-- 児童用アクションパネル (縦並び) -->
-        <div id="student-control-panel" class="d-none" style="position: fixed; right: 80px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
-            <!-- 保存ステータスボタン -->
+        <!-- 児童用コントロールパネル (右下に縦並びで浮かせる) -->
+        <div id="student-control-panel" class="d-none" style="position: fixed; right: 80px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
             <div id="save-status-btn-wrapper">
-                <button id="saveStatusBtn" class="btn btn-outline-success shadow-lg px-3 py-2" style="border-radius: 20px; background-color: white; width: 160px; transition: all 0.2s;">
-                    <i class="fa fa-cloud-upload fa-lg mr-1"></i>&nbsp;<strong>保存済み</strong>
+                <button id="saveStatusBtn" class="btn btn-outline-success shadow-lg px-3 py-2" style="border-radius: 20px; width: 150px; background-color: white; font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;">
+                    <i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>保存済み</strong>
                 </button>
             </div>
-            
-            <!-- できた！ボタン -->
             <div id="complete-btn-wrapper">
-                <button id="completeBtn" class="btn btn-secondary shadow-lg px-3 py-2" style="border-radius: 20px; width: 160px;">
-                    <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>
+                <button id="completeBtn" class="btn btn-secondary shadow-lg px-3 py-2" style="border-radius: 20px; width: 150px; font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;">
+                    <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>まだだよ</strong>
                 </button>
             </div>
         </div>
+
+        <style>
+            /* ホバー時の文字消え対策（背景色と文字色が同化する問題の修正） */
+            #saveStatusBtn.btn-outline-success:hover {
+                background-color: #28a745 !important;
+                color: white !important;
+                border-color: #28a745 !important;
+            }
+            #saveStatusBtn.btn-primary:hover {
+                background-color: #0069d9 !important;
+                color: white !important;
+                border-color: #0062cc !important;
+            }
+            #saveStatusBtn.btn-warning:hover {
+                background-color: #e0a800 !important;
+                color: white !important;
+                border-color: #d39e00 !important;
+            }
+            #saveStatusBtn.btn-danger:hover {
+                background-color: #c82333 !important;
+                color: white !important;
+                border-color: #bd2130 !important;
+            }
+            /* できた！ボタンのホバースタイル */
+            #completeBtn.btn-secondary {
+                background-color: #6c757d !important;
+                border-color: #6c757d !important;
+                color: white !important;
+            }
+            #completeBtn.btn-secondary:hover {
+                background-color: #5a6268 !important;
+                border-color: #545b62 !important;
+            }
+            #completeBtn.btn-success {
+                background-color: #28a745 !important;
+                border-color: #28a745 !important;
+                color: white !important;
+            }
+            #completeBtn.btn-success:hover {
+                background-color: #218838 !important;
+                border-color: #1e7e34 !important;
+            }
+        </style>
 
         <!-- テキスト出力ダイアログ -->
         <div id="dialog-export" class="modal" tabindex="-1" role="dialog">
