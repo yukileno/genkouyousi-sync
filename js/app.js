@@ -165,7 +165,12 @@ class Main {
     }
 
     onPrintClicked() {
+        const originalTitle = document.title;
+        document.title = ""; // 印刷用紙のヘッダーにタイトル「原稿用紙ライター」が載らないように一時的にクリア
         window.print();
+        setTimeout(() => {
+            document.title = originalTitle;
+        }, 1000);
     }
 
     onExportTextClicked(e) {
