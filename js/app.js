@@ -69,6 +69,17 @@ class Main {
         this.$dialogExportImage.find("#btn-export-image").click(this.onExportImageConfirmed.bind(this));
         $(".btn-image-export-mode input").change(this.updateExportImageMode.bind(this));
 
+        // 印刷イベントをフックして、ブラウザ標準の印刷時にもヘッダー/フッターのURL印字を完全に防ぐ
+        window.onbeforeprint = () => {
+            window.originalTitleForPrint = document.title;
+            document.title = " ";
+        };
+        window.onafterprint = () => {
+            if (window.originalTitleForPrint !== undefined) {
+                document.title = window.originalTitleForPrint;
+            }
+        };
+
         // Twitter share button
         $("#share-twitter").click(this.onShareTwitterClicked.bind(this));
 
@@ -165,10 +176,7 @@ class Main {
     }
 
     onPrintClicked() {
-        const originalTitle = document.title;
-        document.title = " "; // 半角スペースにしてURLの自動出力を防ぎ、ヘッダーを完全に空欄にする
         window.print();
-        document.title = originalTitle; // 印刷ダイアログが閉じた後で同期的に復元
     }
 
     onExportTextClicked(e) {
