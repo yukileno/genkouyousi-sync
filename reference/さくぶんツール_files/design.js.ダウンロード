@@ -1,0 +1,697 @@
+import { GenkoYoshi } from "./genko_tool.js";
+import { Settings } from "./settings.js";
+import { SaveHandler } from "./save.js";
+
+class Main {
+  constructor() {
+    this.browser = (
+      /(msie|trident|edge|chrome|safari|firefox|opera)/.exec(
+        window.navigator.userAgent.toLowerCase(),
+      ) || ["other"]
+    )
+      .pop()
+      .replace("trident", "msie");
+
+    this.isIOS =
+      /iphone|ipad|Macintosh/.test(window.navigator.userAgent.toLowerCase()) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    this.genko = new GenkoYoshi($(".genko"), 20, 20);
+    this.settings = new Settings(this);
+    this.saveHandler = new SaveHandler(this);
+
+    $(window).on("unload", this.onClosing.bind(this));
+    setInterval(this.onTimerSaving.bind(this), 3 * 60 * 1000);
+
+    $(window).on("scroll", this.onPageTOPVisible.bind(this));
+
+    this.$pageCss = $("<style>").appendTo($("head"));
+    this.$backdrop = null;
+
+    // 設定
+    this.$settingBtn = $(".dli-create").click(this.onSettingClicked.bind(this));
+    // 閉じる
+    this.$closeBtn = $(".close_btn").click(this.onCloseClicked.bind(this));
+    // 消去
+    this.$clearBtn = $("#clearBtn").click(this.onClearClicked.bind(this));
+    this.$dialogExport = $("#dialog-erase-text");
+    this.$dialogExport
+      .find(".btn-erase")
+      .click(this.onClearTextConfirmed.bind(this));
+    this.$dialogExport
+      .find(".btn-cancel")
+      .click(this.onClearTextCanceled.bind(this));
+
+    // テキスト保存
+    this.$saveBtn = $("#saveBtn").click(this.onExportTextClicked.bind(this));
+
+    // 画像で出力
+    this.$imageBtn = $("#imageBtn").click(this.onExportImageClicked.bind(this));
+
+    // テキスト読込
+    this.$readBtn = $("#readBtn").click(this.onReadClicked.bind(this));
+    this.$dialogImport = $("#dialog-import-text");
+    this.$dialogImport
+      .find(".btn-text")
+      .click(this.onImportTextConfirmed.bind(this));
+    this.$dialogImport
+      .find(".btn-cancel")
+      .click(this.onImportTextCanceled.bind(this));
+
+    // カラーチェンジ
+    this.$colorBtn = $("#colorBtn").click(this.onColorClicked.bind(this));
+    $(document).on("click", this.onDspblkClosed.bind(this));
+    this.$colorCloseBtn = $("#colorPalette i").click(
+      this.onColorClosed.bind(this),
+    );
+    this.$PaletteBtn = $('input[name="color_choice"]').change(
+      this.onColorChange.bind(this),
+    );
+
+    // FONTカラー
+    this.$colorFBtn = $("#fcolorBtn").click(this.onFColorClicked.bind(this));
+    this.$colorFCloseBtn = $("#colorFont i").click(
+      this.onFColorClosed.bind(this),
+    );
+    this.$FontBtn = $('input[name="color_font"]').click(
+      this.onFColorChange.bind(this),
+    );
+    // 印刷
+    this.$printBtn = $("#printBtn").click(this.onPrintClicked.bind(this));
+    // ページTOP
+    this.$ptopBtn = $(".page-top").click(this.onPageTOP.bind(this));
+
+    // 作文チェック
+    this.$checkBtn = $("#checkBtn").click(this.onCheckClicked.bind(this));
+    this.$dialogCheck = $("#dialog-check");
+    $("#dialog-check-close").click(() => {
+      $("#dialog-check").hide();
+    });
+
+    // フローティングパネルのドラッグ移動
+    this.initDraggable();
+  }
+
+  initDraggable() {
+    const panel = document.getElementById("dialog-check");
+    const header = document.getElementById("dialog-check-header");
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+
+    header.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = panel.offsetLeft;
+      startTop = panel.offsetTop;
+      e.preventDefault();
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      panel.style.left = startLeft + dx + "px";
+      panel.style.top = startTop + dy + "px";
+      panel.style.right = "auto";
+    });
+
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+  }
+
+  setup() {
+    this.saveHandler.load();
+    this.genko.init();
+    this.settings.init();
+  }
+
+  onPageTOPVisible(e) {
+    if (window.scrollY > 100) {
+      $(".page-top").addClass("is-active");
+    } else {
+      $(".page-top").removeClass("is-active");
+    }
+  }
+  onSettingClicked(e) {
+    $(".setting_area").toggleClass("active");
+    $("#colorPalette").hide();
+    $("#colorFont").hide();
+    var element = document.documentElement;
+    var bottom = element.scrollHeight - element.clientHeight;
+    window.scroll(0, bottom);
+  }
+  onCloseClicked(e) {
+    $(".setting_area").removeClass("active");
+    $("#colorPalette").hide();
+    $("#colorFont").hide();
+  }
+
+  // 原稿用紙内のすべての文字を消去------------------------------------------------------------
+  onClearClicked(e) {
+    $("#dialog-erase-text.modal").show();
+    $("#colorPalette").hide();
+    $("#colorFont").hide();
+  }
+  onClearTextCanceled(e) {
+    $("#dialog-erase-text.modal").hide();
+  }
+  onClearTextConfirmed(e) {
+    this.genko.clear();
+    this.genko.Fcolors = [];
+    $("#dialog-erase-text.modal").hide();
+  }
+
+  // 入力された文字をjsonに保存する------------------------------------------------
+  onExportTextClicked(e) {
+    var data = {
+      genkoSettings: {
+        colSize: this.genko.colSize,
+        rowSize: this.genko.rowSize,
+        featuringColor: this.genko.featuringColor,
+        featuringFont: this.genko.featuringFont,
+        featuringFontRoman: this.genko.featuringFontRoman,
+        cellOptions: this.genko.cellOptions,
+      },
+      genkoText: this.genko.text.getText().toString(),
+      fcolor: this.genko.Fcolors,
+    };
+
+    var link = document.createElement("a");
+    const json = JSON.stringify(data, undefined, 4);
+    const blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = "genko.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // 原稿用紙の内容を画像で出力----------------------------------------------------------------
+  onExportImageClicked(e) {
+    this.startProcessing("backdrop-export-image")
+      .then(this.exportAsImage.bind(this))
+      .then(this.endProcessing.bind(this));
+  }
+  exportAsImage() {
+    return new Promise((resolve, reject) => {
+      $(document).scrollTop(0);
+      //句読点がおかしくなるので、いったんオリジナルに戻します。
+      $("body").css({ padding: "0" });
+      $(".genko").css({
+        padding: "5mm",
+        margin: "0",
+        "justify-content": "left",
+        width: "min-content",
+      });
+      $(".genko-body").css({ margin: "0" });
+      $(".genko-paper").css({ margin: "5mm" });
+      $(".genko-paper.blank").hide();
+      html2canvas(document.querySelector(".genko"), {
+        foreignObjectRendering: this.browser != "safari",
+        windowWidth: $(".genko").width(),
+        ignoreElements: (elem) => $(elem).is(".genko-ime, .genko-caret"),
+        onclone: (doc) => {
+          $(doc)
+            .find(".genko-paper")
+            .css({ "box-shadow": "none" })
+            .removeClass("newline-visible");
+          $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+          $(doc)
+            .find(".char-body:has(.newline), .char-body:has(.hw-space.single)")
+            .html("<div/>");
+          $(doc)
+            .find(".newline-after")
+            .each((idx, e) => {
+              $(e).text($(e).text());
+            });
+          $(doc)
+            .find(".hw-space.after")
+            .each((idx, e) => {
+              $(e).text($(e).text() + "\xa0");
+            });
+          $(doc)
+            .find(".hw-space.before")
+            .each((idx, e) => {
+              $(e).text("\xa0" + $(e).text());
+            });
+
+          if (this.browser === "safari" || this.isIOS) {
+            const verticalCharMap = {
+              ー: "\uFE31",
+              "—": "\uFE31",
+              "–": "\uFE32",
+              "。": "\uFE12",
+              "、": "\uFE11",
+              "・": "\u30FB",
+              "「": "\uFE41",
+              "」": "\uFE42",
+              "『": "\uFE43",
+              "』": "\uFE44",
+              "（": "\uFE35",
+              "）": "\uFE36",
+              "【": "\uFE39",
+              "】": "\uFE3A",
+              "〔": "\uFE37",
+              "〕": "\uFE38",
+              "〈": "\uFE3D",
+              "〉": "\uFE3E",
+              "《": "\uFE3F",
+              "》": "\uFE40",
+              "〜": "\uFE34",
+              "…": "\uFE19",
+              "‥": "\uFE30",
+            };
+            const replaceVertical = (text) => {
+              return [...text].map((c) => verticalCharMap[c] || c).join("");
+            };
+            $(doc)
+              .find(".char-body div")
+              .each((idx, el) => {
+                const $el = $(el);
+
+                if ($el.hasClass("combined")) {
+                  $el.find(".char-combined").each((i, span) => {
+                    const $span = $(span);
+                    const converted = replaceVertical($span.text());
+                    if (converted !== $span.text()) {
+                      $span.text(converted);
+                      $span.css({
+                        transform: "none",
+                        display: "block",
+                        "text-align": "center",
+                      });
+                    }
+                  });
+                  $el
+                    .contents()
+                    .filter(function () {
+                      return this.nodeType === 3;
+                    })
+                    .each(function () {
+                      const original = this.textContent;
+                      const converted = replaceVertical(original);
+                      if (converted !== original) {
+                        this.textContent = converted;
+                      }
+                    });
+                } else {
+                  const text = $el.text();
+                  if (text.length === 1 && verticalCharMap[text]) {
+                    $el.text(verticalCharMap[text]);
+                    $el.css({
+                      transform: "none",
+                      display: "block",
+                      "text-align": "center",
+                    });
+                  }
+                }
+              });
+          }
+        },
+      }).then((canvas) => {
+        $("body").css({ padding: "" });
+        $(".genko").css({
+          padding: "",
+          margin: "",
+          "justify-content": "",
+          width: "",
+        });
+        $(".genko-body").css({ margin: "" });
+        $(".genko-paper").css({ margin: "" });
+        $(".genko-paper.blank").show();
+        var link = document.createElement("a");
+        var url = canvas.toDataURL();
+        link.href = url;
+        link.download = "genko.png";
+        link.click();
+        $(() => resolve());
+      });
+    });
+  }
+
+  // テキストファイルを読み込んで原稿用紙に反映する--------------------------------------------
+  onReadClicked(e) {
+    $("#input-err1").css("display", "none");
+    $("#input-err2").css("display", "none");
+    $(".input-group-text").show();
+    $("#dialog-import-text.modal").show();
+    $("#colorPalette").hide();
+    $("#colorFont").hide();
+  }
+  onImportTextCanceled(e) {
+    $("#dialog-import-text.modal").hide();
+    $("#input-err1").css("display", "none");
+    $("#input-err2").css("display", "none");
+    $(".input-group-text").show();
+  }
+  onImportTextConfirmed(e) {
+    var elmFile = document.getElementById("import-filename");
+    var file = elmFile.files[0];
+    if (!file) {
+      $("#input-err1").css("display", "block");
+      $(".input-group-text").hide();
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      $("#input-err2").css("display", "block");
+      $(".input-group-text").hide();
+      return;
+    }
+    let reader = new FileReader();
+    reader.onload = (e) => {
+      const jsonContent = e.target.result;
+      const jsonData = JSON.parse(jsonContent);
+      const objArrayKeys = Object.keys(jsonData);
+      const objArrayValue = Object.values(jsonData);
+
+      for (let i = 0; i < objArrayKeys.length; i++) {
+        if (
+          objArrayKeys[i] == "genkoText" ||
+          objArrayKeys[i] == "genkoSettings" ||
+          objArrayKeys[i] == "fcolor"
+        ) {
+          if (objArrayKeys[i] == "genkoSettings") {
+            this.genko.setColor(objArrayValue[i].featuringColor);
+          } else if (objArrayKeys[i] == "fcolor") {
+            this.genko.Fcolors = [];
+            for (const product of objArrayValue[i]) {
+              for (
+                let charPos = product.start;
+                charPos < product.end;
+                charPos++
+              ) {
+                let cell = this.genko.charPosMap[charPos];
+                if (product.color == "red") {
+                  cell.$row[0].classList.add("red");
+                } else {
+                  cell.$row[0].classList.remove("red");
+                }
+              }
+              this.genko.Fcolors.push({
+                start: product.start,
+                end: product.end,
+                color: product.color,
+              });
+            } //for
+          } else {
+            this.genko.setText(objArrayValue[i]);
+            this.genko.updateText();
+          }
+        } else {
+          $("#input-err2").css("display", "block");
+          $(".input-group-text").hide();
+          return;
+        }
+      } //for
+      this.saveHandler.save();
+      $("#dialog-import-text.modal").hide();
+      $(".setting_area").removeClass("active");
+    }; //reader
+    reader.readAsText(file);
+  }
+
+  // カラーを変更する--------------------------------------------------------------------------
+  onColorClicked(e) {
+    e.stopPropagation();
+    $("#colorPalette").show();
+  }
+  onColorClosed(e) {
+    $("#colorPalette").hide();
+  }
+  onDspblkClosed(e){
+    $(document).on("click", (e) => {
+      if (!$(e.target).closest("#colorPalette").length) {
+        $("#colorPalette").hide();
+      }
+    });
+  }  
+  onColorChange(e) {
+    let elmID = $(e.target)[0].id;
+    let color = $(e.target)[0].value;
+    this.genko.setColor(color);
+    if (elmID == "colorful") {
+      $('[name="color_choice"]').each(function () {
+        if ($(this).prop("checked")) {
+          $(this).prop("checked", false).removeAttr("checked");
+        }
+      });
+      $("#colorful + label").css("border", "2px solid #978181");
+    } else {
+      $(e).prop("checked", true);
+      $("#colorful + label").css("border", "none");
+    }
+  }
+  // FONTカラーを変更する----------------------------------------------------------------------
+  onFColorClicked(e) {
+    // トグルで黒と赤を切り替え
+    const newColor = this.genko.currentInputColor === "black" ? "red" : "black";
+    this.genko.currentInputColor = newColor;
+
+    // ボタンの見た目を切り替え
+    if (newColor === "red") {
+      $("#fcolorBtn").addClass("is-active").css("color", "red");
+    } else {
+      $("#fcolorBtn").removeClass("is-active").css("color", "");
+    }
+    // 選択中の範囲があれば、その範囲にも色を適用
+    if (this.genko.selectState.isSelecting) {
+      this.genko.changeFColor(newColor);
+    }
+  }
+  onFColorClosed(e) {
+    $("#colorFont").hide();
+  }
+  onFColorChange(e) {
+    if (this.genko.selectState.isSelecting) {
+      $(e).prop("checked", true);
+      let color = $(e.target)[0].value;
+      this.genko.changeFColor(color);
+    }
+  }
+  // 印刷
+  onPrintClicked() {
+    $("#colorPalette").hide();
+    $("#colorFont").hide();
+    window.print();
+  }
+  // ページTOP
+  onPageTOP() {
+    window.scroll({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+  startProcessing(backdropClass) {
+    return new Promise((resolve, reject) => {
+      const elmtag = document.createElement("div");
+      elmtag.id = "processingBackdrop";
+      elmtag.className = "modal-backdrop show ${backdropClass}";
+      const elmChild = `<div class="modal-dialog" role="document"><div class="modal-content"><div class="modal-body mb25"><p>画像生成中…<br>しばらくお待ちください。</p></div></div></div>`;
+      elmtag.insertAdjacentHTML("afterbegin", elmChild);
+      this.$backdrop = $(elmtag).appendTo(document.body);
+      $(() => resolve());
+    });
+  }
+
+  endProcessing() {
+    setTimeout(() => {
+      this.$backdrop.fadeOut(500, function () {
+        this.remove();
+      });
+      this.$backdrop = null;
+    });
+  }
+
+  onTimerSaving() {
+    this.saveHandler.save();
+  }
+
+  onClosing() {
+    this.saveHandler.save();
+  }
+
+  onCheckClicked() {
+    const raw = this.genko.getText();
+    const lines = raw.split(/\n/).filter((l) => l.trim().length > 0);
+    const rawLines = raw.split("\n");
+    const issues = [];
+
+    // 文字位置から物理行番号を求める関数
+    const getLineNumberFromIndex = (charIndex) => {
+      const cell = this.genko.charPosMap[charIndex];
+      if (!cell) return null;
+      return Math.floor(cell.pos / this.genko.colSize) + 1;
+    };
+
+    // ルール1: 題名（1行目）は上2〜3マスを空ける
+    const titleLine = lines[0] || "";
+    if (
+      [...titleLine].filter((c) => c === "" || c === " " || c === "　").length <
+      2
+    ) {
+      issues.push({
+        rule: "題名は上を2〜3マス空ける",
+        msg: "1行目：題名の上は2〜3マス空けましょう。",
+        charPos: 0,
+      });
+    }
+
+    // ルール2: 2行目（名前）の最終マス（20マス目）が空白かどうかで判定
+    const nameLine2 = rawLines[1] || "";
+    const nameChars2 = [...nameLine2];
+    const lastNameChar = nameChars2[19];
+    if (lastNameChar && lastNameChar !== "　" && lastNameChar !== " ") {
+      issues.push({
+        rule: "名前は下を1マス以上空ける",
+        msg: "2行目：名前の一番下のマスは１文字以上空けましょう。",
+        charPos: this.genko.colSize,
+      });
+    }
+
+    // ルール3: 段落の最初は1マス空ける
+    const textArr = [...raw];
+    const allowedFirstChars = new Set(["", " ", "　", "\u00A0", "「", "『"]);
+    textArr.forEach((char, charPos) => {
+      if (char !== "\n") return;
+      const lineIndex = raw.slice(0, charPos).split("\n").length;
+      if (lineIndex < 1) return;
+      const nextCharPos = charPos + 1;
+      const nextCell = this.genko.charPosMap[nextCharPos];
+      if (!nextCell) return;
+      if (nextCell.isBlank) return;
+      if (nextCell.pos % this.genko.colSize !== 0) return;
+      const cellText = nextCell.$body.text();
+      if (!allowedFirstChars.has(cellText)) {
+        const physicalLine = Math.floor(nextCell.pos / this.genko.colSize) + 1;
+        issues.push({
+          rule: "段落の最初は1マス空ける",
+          msg: `${physicalLine}行目：段落の最初は１文字空けましょう。`,
+          charPos: nextCharPos,
+        });
+      }
+    });
+
+    // ルール4: 句読点・閉じ括弧を行頭に置かない
+    rawLines.forEach((line, i) => {
+      const trimmed = line.replace(/^[\s\u00A0\u3000]+/, "");
+      if (/^[。、）」』】〕〉》]/.test(trimmed)) {
+        const lineStartIndex = rawLines
+          .slice(0, i)
+          .reduce((acc, l) => acc + [...l].length + 1, 0);
+        const physicalLine = getLineNumberFromIndex(lineStartIndex);
+        issues.push({
+          rule: "句読点・閉じ括弧を行の最初には書けません。",
+          msg: `${physicalLine ? physicalLine + "行目：" : ""}先頭に「${trimmed[0]}」があります。句読点・閉じ括弧を行の最初には書けません。`,
+          charPos: lineStartIndex,
+        });
+      }
+    });
+
+    // ルール5: 句読点の連続使用
+    [...raw.matchAll(/[。、]{2,}/g)].forEach((m) => {
+      const lineNum = getLineNumberFromIndex(m.index);
+      issues.push({
+        rule: "句読点の連続使用をしない",
+        msg: `${lineNum ? lineNum + "行目：" : ""}「${m[0]}」のように句読点が連続しています。`,
+        charPos: m.index,
+      });
+    });
+
+    // ルール6: 文体の混在（位置特定なし）
+    const hasMasu = /です|ます|でした|ました/.test(raw);
+    const hasDa = /だ。|である。|だった。/.test(raw);
+    if (hasMasu && hasDa) {
+      issues.push({
+        rule: "文体を統一する",
+        msg: "「です・ます調」と「だ・である調」が混在しています。",
+        charPos: null,
+      });
+    }
+
+    // ルール8: 数字は漢数字にする
+    [...raw.matchAll(/[0-9０-９]+/g)].forEach((m) => {
+      const lineNum = getLineNumberFromIndex(m.index);
+      issues.push({
+        rule: "数字は漢数字にする",
+        msg: `${lineNum ? lineNum + "行目：" : ""}「${m[0]}」は数字です。原則として「一・二・三…」などの漢数字にしましょう。`,
+        charPos: m.index,
+      });
+    });
+
+    // 結果HTML生成
+    let html = `<p style="margin-bottom:12px;">指摘数: <b>${issues.length}</b></p>`;
+
+    if (issues.length === 0) {
+      html += `<p>チェック項目にひっかかる箇所はありませんでした。よく書けています！</p>`;
+    } else {
+      issues.forEach((issue, idx) => {
+        const hasPos = issue.charPos !== null;
+        html += `
+                <div class="check-issue-item"
+                     data-charpos="${hasPos ? issue.charPos : ""}"
+                     style="margin-bottom:8px;padding:8px 10px;border-left:3px solid #E24B4A;background:#fdf5f5;
+                            ${hasPos ? "cursor:pointer;" : ""}">
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">
+                        ${issue.rule}</div>
+                    <div style="font-size:13px;">${issue.msg}</div>
+                    ${
+                      hasPos
+                        ? `<div style="font-size:11px;color:#aaa;margin-top:3px;">▶ タップで該当箇所を表示
+                           </div>`
+                        : ""
+                    }
+                </div>`;
+      });
+    }
+
+    $("#check-result-body").html(html);
+    $("#dialog-check").css("display", "flex").show();
+
+    // ハイライト処理
+    $("#check-result-body")
+      .off("click.checkHighlight")
+      .on("click.checkHighlight", ".check-issue-item[data-charpos]", (e) => {
+        const charPosStr = $(e.currentTarget).data("charpos");
+        if (charPosStr === "" || charPosStr === undefined) return;
+        const charPos = parseInt(charPosStr);
+        if (isNaN(charPos)) return;
+
+        // 既存ハイライトを解除
+        $(".char-row.highlight, .char-row.highlight-fade").removeClass(
+          "highlight highlight-fade",
+        );
+
+        // 対象セルを取得してハイライト（最大8セル）
+        const cell = this.genko.charPosMap[charPos];
+        if (!cell) return;
+
+        const highlightCells = [];
+        if (cell) {
+          highlightCells.push(cell);
+        }
+
+        highlightCells.forEach((c) => c.$row.addClass("highlight"));
+
+        // 該当ページへスクロール
+        const targetOffset =
+          cell.$body.closest(".genko-paper").offset().top -
+          this.genko.paperMerginTop;
+        $("html, body").animate({ scrollTop: targetOffset }, 400);
+
+        // 2秒後にフェードアウト
+        setTimeout(() => {
+          highlightCells.forEach((c) =>
+            c.$row.removeClass("highlight").addClass("highlight-fade"),
+          );
+          setTimeout(() => {
+            highlightCells.forEach((c) => c.$row.removeClass("highlight-fade"));
+          }, 1500);
+        }, 2000);
+      });
+  }
+}
+
+$(() => new Main().setup());

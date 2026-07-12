@@ -1,0 +1,66 @@
+var check_webp_support = {};
+
+check_webp_support.isSupportedWebP;
+
+check_webp_support.isReplacedWebP = false;
+
+check_webp_support.isDOMContentLoaded = false;
+
+check_webp_support.checkWebpAlphaSupport = function(callback) {
+    var img = new Image();
+    img.onload = function () {
+        var isSupported = (img.width > 0) && (img.height > 0);
+        callback(isSupported);
+    };
+    img.onerror = function () {
+        callback(false);
+    };
+    img.src = "data:image/webp;base64,UklGRkoAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAwAAAARBxAR/Q9ERP8DAABWUDggGAAAABQBAJ0BKgEAAQAAAP4AAA3AAP7mtQAAAA==";
+}
+
+check_webp_support.replaceWebpImages = function () {
+
+    check_webp_support.isReplacedWebP = true;
+
+    var webpImgList1 = document.querySelectorAll('img[src^="/"][src$=".webp"]');
+    for (var i = 0; i < webpImgList1.length; i++) {
+
+        var webpImg = webpImgList1[i];
+
+        webpImgList1[i].src = webpImg.src.slice(0, -5);
+
+        if ('default' in webpImg.dataset && webpImg.dataset.default.slice(-5) === '.webp') {
+            webpImgList1[i].dataset.default = webpImg.dataset.default.slice(0, -5);
+        }
+    }
+    
+    var webpImgList2 = document.querySelectorAll('img[src^="/"][src*=".webp?"]');
+    for (var i = 0; i < webpImgList2.length; i++) {
+
+        var webpImg = webpImgList2[i];
+
+        webpImgList2[i].src = webpImg.src.replace('.webp?', '?');
+
+        if ('default' in webpImg.dataset && webpImg.dataset.default.indexOf('.webp?') !== -1) {
+            webpImgList2[i].dataset.default = webpImg.dataset.default.replace('.webp?', '?');
+        }
+    }
+}
+
+check_webp_support.checkWebpAlphaSupport((isSupported) => {
+
+    check_webp_support.isSupportedWebP = isSupported
+
+    if (check_webp_support.isSupportedWebP === false && check_webp_support.isReplacedWebP === false && check_webp_support.isDOMContentLoaded === true) {
+        check_webp_support.replaceWebpImages();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    if (check_webp_support.isSupportedWebP === false && check_webp_support.isReplacedWebP === false) {
+        check_webp_support.replaceWebpImages();
+    }
+
+    check_webp_support.isDOMContentLoaded = true;
+});

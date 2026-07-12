@@ -1,0 +1,36 @@
+@font-face {
+  font-family: 'fontello';
+  src: url('../font/fontello.ttf?68621861') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+[class^="icon-"]:before, [class*=" icon-"]:before {
+  font-family: "fontello";
+  font-style: normal;
+  font-weight: normal;
+  speak: never;
+
+  display: inline-block;
+  text-decoration: inherit;
+  width: 1em;
+  margin-right: .2em;
+  text-align: center;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1em;
+  margin-left: .2em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-floppy:before { content: '\e800'; }
+.icon-upload:before { content: '\e801'; }
+.icon-ok:before { content: '\e802'; }
+.icon-art-gallery:before { content: '\e803'; }
+.icon-vector-pencil:before { content: '\e804'; }
+.icon-print:before { content: '\e805'; }
+.icon-book-open:before { content: '\e806'; }
+.icon-cancel:before { content: '\e807'; }
+.icon-plane-outline:before { content: '\e808'; }
+.icon-eraser:before { content: '\f12d'; }
+.icon-file-image:before { content: '\f1c5'; }
