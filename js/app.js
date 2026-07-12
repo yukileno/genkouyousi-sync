@@ -667,7 +667,7 @@ class Main {
                             studentName: studentName,
                             charCount: charCount,
                             text: text,
-                            settings: JSON.stringify(settingsData)
+                            settings: isTeacher ? JSON.stringify(settingsData) : ""
                         })
                     });
                     const res = await response.json();

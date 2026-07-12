@@ -36,7 +36,11 @@ function doPost(e) {
         sheet.getRange(foundRow, 5).setValue(timestamp); // E列: 保存日時
         sheet.getRange(foundRow, 6).setValue(charCount); // F列: 文字数
         sheet.getRange(foundRow, 7).setValue(text);      // G列: 本文
-        sheet.getRange(foundRow, 8).setValue(settings);  // H列: 設定
+        
+        // 教師(99番)の場合のみH列(設定データ)を保存する
+        if (studentId == 99 || studentId == "99") {
+          sheet.getRange(foundRow, 8).setValue(settings);  // H列: 設定
+        }
         
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
           .setMimeType(ContentService.MimeType.JSON);
