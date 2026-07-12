@@ -396,12 +396,7 @@
         </div>
 
         <!-- 右下ボタン -->
-        <div class="right-down-control-pane d-flex align-items-center">
-            <div id="complete-btn-wrapper" class="d-none mr-2">
-                <button id="completeBtn" class="btn btn-sm btn-success status-incomplete px-3 py-2">
-                    <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>
-                </button>
-            </div>
+        <div class="right-down-control-pane">
             <div id="undoBtn" class="btn btn-desktop btn-desktop-label4" data-label="取り消す"><i class="fa fa-undo"></i></div>
             <div id="redoBtn" class="btn btn-desktop btn-desktop-label4" data-label="やり直す"><i class="fa fa-undo fa-flip-horizontal"></i></div>
             <div id="fullscreenBtn" class="btn btn-desktop btn-desktop-label5" data-label="全画面表示">
@@ -411,6 +406,13 @@
                 </span>
             </div>
             <div id="printBtn" class="btn btn-desktop" data-label="印刷"><i class="fa fa-print"></i></div>
+        </div>
+
+        <!-- できた！ボタン (右下ボタン群の左側に浮かせる) -->
+        <div id="complete-btn-wrapper" class="d-none" style="position: fixed; right: 80px; bottom: 20px; z-index: 200;">
+            <button id="completeBtn" class="btn btn-success status-incomplete shadow-lg px-3 py-2" style="border-radius: 20px;">
+                <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>
+            </button>
         </div>
 
         <!-- テキスト出力ダイアログ -->
