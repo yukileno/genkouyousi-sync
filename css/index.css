@@ -1,40 +1,798 @@
-﻿# 実装完了のまとめ (Walkthrough) - 児童用「できた！」（完成ステータス）ボタンと、先生用「提出バッジ」同期システムの実装
+﻿import {GenkoYoshi} from "./genkoyoshi.js";
+import {Settings} from "./settings.js";
+import {SaveHandler} from "./savehandler.js";
 
-児童が作文を書き終えた際に自分で宣言できる **「できた！」（完成ステータス）トグルボタン** と、先生側の切り替えサイドバーで全員の提出進捗がひと目でリアルタイムに分かる **「金色の完了マーク（チェックバッジ）」同期システム** を構築しました。
+// Google Apps Script(GAS)のWebアプリ of のデプロイURLを設定します
+// スプレッドシート連携を有効にするには、ここにURLを記述してください。
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwczI96EhZiMLuxjxMxmBImYdlv5uJH9iZrGxTlwtRQo1MWN8nNOuo5rt_A2S3QDEDl/exec";
 
----
+class Main {
+    constructor() {
+        this.browser = (/(msie|trident|edge|chrome|safari|firefox|opera)/
+                .exec(window.navigator.userAgent.toLowerCase()) || ["other"]).pop().replace("trident", "msie");
 
-## 🛠 実施した変更内容
+        this.genko = new GenkoYoshi($(".genko"), 20, 20);
+        this.settings = new Settings($("#controlPane"), this);
+        this.saveHandler = new SaveHandler(this);
+        this.autoSaveTimer = null; // GAS自動保存用タイマー
 
-### 1. [MODIFY] [index.html](file:///c:/Users/yukil/OneDrive/dev/genkouyousi/index.html)
-- 児童画面の右下（いつもの操作ボタンの上部）に、大きめで押しやすいフローティング型の **「できた！」ボタン**（`#complete-btn-wrapper`）を新規追加しました。
+        $(window).on("unload", this.onClosing.bind(this));
+        setInterval(this.onTimerSaving.bind(this), 5 * 60 * 1000);
 
-### 2. [MODIFY] [css/index.css](file:///c:/Users/yukil/OneDrive/dev/genkouyousi/css/index.css)
-- **児童用「できた！」ボタンの弾むビジュアル**:
-  * 未完了（初期状態）のときはシックなグレー、子供が「できた！」をクリックした瞬間に **鮮やかな黄緑色（完了状態）** に変わり、ポンポンと可愛く弾む心拍（ハートビート）アニメーションを実装しました。ゲームのクリアボタンのように子供のモチベーションを高めます。
-  * 印刷時（プリンタやPDF）は、このボタンは自動的に隠れます。
-- **先生用サイドバー「完了バッジ」の追加**:
-  * 「できた！」ボタンを押した児童の出席番号丸ボタンの右上に、**「金色の小さなチェックマークバッジ」** がピタッと浮き上がるスタイル（`.student-btn.completed:after`）を追加しました。
+        this.$pageCss = $("<style>").appendTo($("head"));
+        this.$backdrop = null;
 
-### 3. [MODIFY] [js/app.js](file:///c:/Users/yukil/OneDrive/dev/genkouyousi/js/app.js)
-- **スプレッドシートへの安全な保存（列定義の変更なし）**:
-  * 児童の「できた！」状態は、スプレッドシートの構造を崩さない（GASの再デプロイ等を不要にする）ため、罫線色やフォントなどを保存している `settings` JSONの一部（`isCompleted` フラグ）として保存・同期するスマートなデータ設計にしました。
-  * 「できた！」ボタンが押された瞬間、自動保存タイマーを待たずに **即座に（即時）スプレッドシートへ保存同期処理が走ります**。
-- **先生用サイドバーでの提出状況と氏名の動的反映**:
-  * 先生（出席番号0）でログインした初期化処理（`initTeacherWorkspace`）において、各児童の `settings` をパースして `isCompleted` の状態を判定します。
-  * 作文データが「入力中（hasWriting）」かつ「できた（isCompleted）」なら、サイドバーのボタンに完了バッジを付与し、さらにドロワー内のセレクトボックスにも「`1番 名前 〇(できた！)`」「`2番 名前 〇(書きかけ)`」のように日本語で進捗ステータスを分かりやすく表示します。
+        this.studentRoster = null;
+        this.teacherCachedWritings = []; // 教師用：読み込んだ児童作文データのキャッシュ
+        
+        this.$loginClassNum = $("#login-class-num").change(this.onClassNumChanged.bind(this));
+        this.$loginStudentSelect = $("#login-student-select");
+        this.$loginPassword = $("#login-password"); // パスワードフィールド
+        this.$teacherCommentBox = $("#teacher-comment-box");
+        this.$teacherCommentText = $("#teacher-comment-text");
+        this.$teacherMenuBox = $("#teacher-menu-box");
+        this.$teacherStudentSelect = $("#teacher-student-select").change(this.onTeacherStudentSelected.bind(this));
 
----
+        // ログイン要素の初期化
+        this.$dialogLogin = $("#dialog-login").modal({show: false, backdrop: 'static', keyboard: false});
+        $("#loginForm").submit(this.onLoginSubmitted.bind(this));
+        $("#logoutBtn").click(this.onLogoutClicked.bind(this));
 
-## 🧪 動作確認
+        // リアルタイムの文字入力を監視
+        $(document).on("input", this.onInputChanged.bind(this));
 
-1. **児童のアカウントでログインします**。
-2. 画面の右下（印刷ボタンの上部）に、グレーの丸型「**できた！**」ボタンが出現することを確認します。
-3. ボタンをクリックします。
-   * ボタンが **鮮やかな黄緑色「できた！(完了)」** に変化し、ポンポンと跳ねるような可愛いアニメーションが走り、即時にスプレッドシートへ完了ステータスが保存されることを確認します。
-   * もう一度クリックすると、グレーに戻り「書き直し（未完了）」状態にトグルすることを確認します。
-4. **一旦ログアウトし、今度は先生（出席番号0）でログインします。**
-5. 画面左端のサイドバー（出席番号一覧）を確認します。
-   * 先ほど「できた！(完了)」を押した児童の出席番号丸ボタンの右上に、**金色のチェックマークバッジが付与されていること** を確認します。
-   * 「書きかけ」の児童は薄緑色、「未入力」の児童は白色として、クラス全体の進捗がサイドバーだけで一目瞭然であることを確認します。
-6. 設定ドロワーを開き、「児童の作文を選択」の選択肢にも「`〇(できた！)`」「`〇(書きかけ)`」と正確に状況が表示されていることを確認します。
+        // Buttons
+        this.$saveBtn = $("#saveBtn").click(this.onSaveClicked.bind(this));
+        this.$undoBtn = $("#undoBtn").click(this.onUndoClicked.bind(this));
+        this.$redoBtn = $("#redoBtn").click(this.onRedoClicked.bind(this));
+        this.$printBtn = $("#printBtn").click(this.onPrintClicked.bind(this));
+        this.$fullscreenBtn = $("#fullscreenBtn").click(this.onFullscreenClicked.bind(this));
+
+        // Export text
+        this.$exportBtn = $("#export-text").click(this.onExportTextClicked.bind(this));
+        this.$dialogExport = $("#dialog-export").modal({show: false});
+        this.$dialogExport.find(".btn-okay").click(this.onExportTextConfirmed.bind(this));
+
+        // Copy image to clipboard
+        this.$copyImageBtn = $("#copy-image").click(this.onCopyImageClicked.bind(this));
+
+        // Export as image
+        this.$exportImageBtn = $("#export-image").click(this.onExportImageClicked.bind(this));
+        this.$dialogExportImage = $("#dialog-export-image").modal({show: false});
+        this.$dialogExportImage.find("#btn-export-image").click(this.onExportImageConfirmed.bind(this));
+        $(".btn-image-export-mode input").change(this.updateExportImageMode.bind(this));
+
+        // Twitter share button
+        $("#share-twitter").click(this.onShareTwitterClicked.bind(this));
+
+        // Define drawer action
+        this.$drawers = $(".drawer");
+        this.$drawers.each((idx, drawer) => {
+            $(drawer).find(".drawer-accordion-box").hide();
+            $(drawer).find(".drawer-header").click(e => this.onDrawerClicked(e, $(drawer)));
+        });
+
+        $(document).on('click touchend', e => {
+            if (!$(e.target).closest(".drawer").length) {
+                this.$drawers.find(".drawer-accordion-box").hide(200);
+                this.$drawers.removeClass("active");
+            }
+        });
+    }
+
+    async setup() {
+        // 同期関数であるloadを呼び出します
+        this.saveHandler.load();
+        
+        try {
+            // 原稿用紙の初期化（非同期）を待ちます
+            await this.genko.init();
+            
+            this.settings.init();
+            this.setPrintPageSize(this.genko.rowSize, this.genko.colSize);
+            $('[data-toggle="tooltip"]').tooltip();
+            
+            // 起動時は共有PCでの安全のため、常にログイン情報をクリアして認証させる
+            window.localStorage.removeItem("genko_classNumber");
+            window.localStorage.removeItem("genko_studentId");
+            window.localStorage.removeItem("genko_studentName");
+
+            // ログイン状態を検証
+            await this.checkLoginStatus(); 
+        } catch (err) {
+            console.error("初期化中にエラーが発生しました:", err);
+        }
+    }
+
+    onDrawerClicked(e, $drawer) {
+        var $accordion = $drawer.find(".drawer-accordion-box");
+        var toggle = !$drawer.hasClass("active");
+
+        this.$drawers.find(".drawer-accordion-box").hide(200);
+        this.$drawers.removeClass("active");
+
+        if (toggle) {
+            $accordion.show(200);
+        } else {
+            $accordion.hide(200);
+        }
+        $drawer.toggleClass("active", toggle);
+    }
+
+    onUndoClicked() {
+        this.genko.undo();
+        this.triggerAutoSaveToServer();
+    }
+
+    onRedoClicked() {
+        this.genko.redo();
+        this.triggerAutoSaveToServer();
+    }
+
+    setPrintPageSize(rows, cols) {
+        if (rows == 20 && cols == 20) {
+            // 400字詰
+            this.$pageCss.html("@page {size: A4 landscape; margin: 12mm 10mm 5mm 10mm;}")
+        } else if (rows == 10 && cols == 20) {
+            // 200字詰
+            this.$pageCss.html("@page {size: A5 portrait; margin: 15mm 10mm 15mm 10mm;}")
+        } else {
+            this.$pageCss.html("");
+        }
+    }
+
+    onSaveClicked() {
+        this.saveHandler.save();
+    }
+
+    onFullscreenClicked() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    onPrintClicked() {
+        window.print();
+    }
+
+    onExportTextClicked(e) {
+        this.$dialogExport.modal("show");
+    }
+
+    onExportTextConfirmed(e) {
+        var text = this.genko.getText();
+        var link = document.createElement("a");
+        var url = URL.createObjectURL(new Blob([text], {type: "text/plain"}));
+        link.href = url;
+        link.download = this.$dialogExport.find("#export-filename").val();
+        //link.dataset.downloadurl = ["text/plain", link.download, link.href].join(":");
+        link.click();
+        this.$dialogExport.modal("hide");
+    }
+
+    onExportImageClicked(e) {
+        this.$dialogExportImage.modal("show");
+        this.updateExportImageMode();
+    }
+    
+    onExportImageConfirmed(e) {
+        const $pages = this.getPages();
+        const isSinglePage = $pages.length == 1;
+        const isAllInOne = $("#imageExportAllInOne").is(":checked") || isSinglePage;
+        const funcExportAsImage = isAllInOne ? this.exportAsImage : this.exportAsImageEachPage;
+
+        this.$dialogExportImage.modal("hide");
+        this.startProcessing("backdrop-export-image")
+            .then(funcExportAsImage.bind(this))
+            .then(this.endProcessing.bind(this));
+    }
+
+    updateExportImageMode() {
+        const $pages = this.getPages();
+        const isSinglePage = $pages.length == 1;
+        const isAllInOne = $("#imageExportAllInOne").is(":checked");
+        let postfix;
+
+        $(".btn-image-export-mode")
+            .toggleClass("disabled", isSinglePage)
+            .toggleClass("btn-outline-primary", !isSinglePage)
+            .toggleClass("btn-outline-secondary", isSinglePage)
+            .attr("inert", isSinglePage ? "inert" : null);
+
+        if (isAllInOne || isSinglePage) {
+            postfix = ".png";
+            $("#imageFilePagingDesc").hide();
+        } else {
+            postfix = "-<i>ページ数</i>.png";
+            $("#imageFilePagingDesc").show();
+        }
+        $("#image-filename-postfix").html(postfix);
+    }
+
+    exportAsImage() {
+        return new Promise((resolve, reject) => {
+            $(document).scrollTop(0);
+            $("body").css({"padding": "0"});
+            $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+            $(".genko-body").css({"margin": "0"});
+            $(".genko-paper").css({"margin": "5mm"});
+            $(".genko-paper.blank").hide();
+            html2canvas(document.querySelector(".genko"), {
+                foreignObjectRendering: this.browser != "safari",
+                //useCORS: true,
+                //allowTaint: true,
+                windowWidth: $(".genko").width(),
+                ignoreElements: elem => $(elem).is(".genko-ime, .genko-caret"),
+                onclone: (doc) => {
+                    $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                    $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                    $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                    $(doc).find(".newline-after").each((idx, e) => {
+                        $(e).text($(e).text());
+                    });
+                    $(doc).find(".hw-space.after").each((idx, e) => {
+                        $(e).text($(e).text() + "\xa0");
+                    })
+                    $(doc).find(".hw-space.before").each((idx, e) => {
+                        $(e).text("\xa0" + $(e).text());
+                    })
+                }
+            }).then(canvas => {
+                // $("body").append(canvas); // Output image on screen for debugging
+                $("body").css({"padding": ""});
+                $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+                $(".genko-body").css({"margin": ""});
+                $(".genko-paper").css({"margin": ""});
+                $(".genko-paper.blank").show();
+                var link = document.createElement("a");
+                var url = canvas.toDataURL();
+                var filename = $("#export-image-filename").val() + ".png"
+                link.href = url;
+                link.download = filename;
+                link.click();
+                $(() => resolve())
+            });
+        });
+    }
+
+    async exportAsImageEachPage() {
+        let $pages = this.getPages();
+        $(document).scrollTop(0);
+        $("body").css({"padding": "0"});
+        $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+        $(".genko-body").css({"margin": "0"});
+        $(".genko-paper").css({"margin": "5mm"});
+        $(".genko-paper.blank").hide();
+        try {
+            for (const [idx, page] of $pages.toArray().entries()) {
+                $pages.hide();
+                $(page).show();
+                const canvas = await html2canvas(document.querySelector(".genko"), {
+                    foreignObjectRendering: this.browser != "safari",
+                    onclone: (doc) => {
+                        $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                        $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                        $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                        $(doc).find(".newline-after").each((idx, e) => {
+                            $(e).text($(e).text());
+                        });
+                        $(doc).find(".hw-space.after").each((idx, e) => {
+                            $(e).text($(e).text() + "\xa0");
+                        })
+                        $(doc).find(".hw-space.before").each((idx, e) => {
+                            $(e).text("\xa0" + $(e).text());
+                        })
+                    }
+                });
+                var link = document.createElement("a");
+                var url = canvas.toDataURL();
+                var filename = $("#export-image-filename").val() + `-${(idx + 1).toString().padStart(2, "0")}.png`
+                link.href = url;
+                link.download = filename;
+                link.click();
+            }
+        } finally {
+            $pages.show();
+            $("body").css({"padding": ""});
+            $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+            $(".genko-body").css({"margin": ""});
+            $(".genko-paper").css({"margin": ""});
+            $(".genko-paper.blank").show();
+        }
+    }
+
+    onCopyImageClicked(e) {
+        this.startProcessing("backdrop-copy-image")
+            .then(this.copyAsImage.bind(this))
+            .then(this.endProcessing.bind(this))
+            .catch(err => {
+                this.endProcessing();
+                console.error("画像コピーエラー:", err);
+                alert("画像のコピー中にエラーが発生しました:\n" + err.message);
+            });
+    }
+
+    async copyAsImage() {
+        let $pages = this.getPages();
+        $(document).scrollTop(0);
+        $("body").css({"padding": "0"});
+        $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+        $(".genko-body").css({"margin": "0"});
+        $(".genko-paper").css({"margin": "5mm"});
+        $(".genko-paper.blank").hide();
+
+        try {
+            const canvas = await html2canvas(document.querySelector(".genko"), {
+                scale: 1.5,
+                foreignObjectRendering: this.browser != "safari",
+                onclone: (doc) => {
+                    $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                    $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                    $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                    $(doc).find(".newline-after").each((idx, e) => {
+                        $(e).text($(e).text());
+                    });
+                    $(doc).find(".hw-space.after").each((idx, e) => {
+                        $(e).text($(e).text() + "\xa0");
+                    });
+                    $(doc).find(".hw-space.before").each((idx, e) => {
+                        $(e).text("\xa0" + $(e).text());
+                    });
+                }
+            });
+
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        reject(new Error("画像の生成に失敗しました。"));
+                        return;
+                    }
+                    if (navigator.clipboard && window.ClipboardItem) {
+                        try {
+                            const item = new ClipboardItem({ "image/png": blob });
+                            await navigator.clipboard.write([item]);
+                            alert("原稿用紙の画像をコピーしました！\nロイロノートや別ソフトの画面で貼り付け（Ctrl + V）して提出してください。");
+                            resolve();
+                        } catch (clipErr) {
+                            reject(clipErr);
+                        }
+                    } else {
+                        reject(new Error("お使いのブラウザが画像のコピー機能に対応していません。"));
+                    }
+                }, "image/png");
+            });
+        } finally {
+            $pages.show();
+            $("body").css({"padding": ""});
+            $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+            $(".genko-body").css({"margin": ""});
+            $(".genko-paper").css({"margin": ""});
+            $(".genko-paper.blank").show();
+        }
+    }
+
+    onShareTwitterClicked(e) {
+    }
+
+    setWallpaper(key) {
+        $("body").removeClass().addClass("skin-" + key);
+    }
+
+    setLightColor(val) {
+        var ratio = Math.cos(val * Math.PI / 2 + Math.PI) + 1;
+        $(".bg-lighting").css("background-color", `rgb(255, ${184 + 71 * ratio}, ${126 + 129 * ratio})`);
+    }
+
+    startProcessing(backdropClass) {
+        return new Promise((resolve, reject) => {
+            this.$backdrop = $(`<div id='processingBackdrop' class='modal-backdrop show ${backdropClass}'>`)
+                    .appendTo(document.body);
+            $(() => resolve());
+        });
+    }
+
+    endProcessing() {
+        setTimeout(() => {
+            if (this.$backdrop) {
+                this.$backdrop.fadeOut(500, function() { $(this).remove(); });
+                this.$backdrop = null;
+            }
+        });
+    }
+
+    onTimerSaving() {
+        this.saveHandler.save();
+    }
+
+    onClosing() {
+        this.saveHandler.save();
+    }
+
+    getPages() {
+        return $(".genko-paper:not(.blank)");
+    }
+
+    async checkLoginStatus() {
+        const classNum = window.localStorage.getItem("genko_classNumber");
+        const studentId = window.localStorage.getItem("genko_studentId");
+        const studentName = window.localStorage.getItem("genko_studentName");
+
+        if (classNum && studentId && studentName) {
+            $("#login-display-class").text(classNum + "組　" + studentId + "番");
+            $("#login-display-name").text(studentName);
+            
+            // 教師用メニューの表示制御 (出席番号「0」を教師用とする)
+            if (studentId === "0" || studentId === 0) {
+                this.$teacherMenuBox.removeClass("d-none");
+                // 先生用ワークスペースの初期化と児童データのフェッチ
+                await this.initTeacherWorkspace(classNum);
+            } else {
+                this.$teacherMenuBox.addClass("d-none");
+            }
+            
+            this.$dialogLogin.modal("hide");
+        } else {
+            $("#login-display-class").text("未ログイン");
+            $("#login-display-name").text("ゲスト");
+            this.$teacherMenuBox.addClass("d-none");
+            this.$dialogLogin.modal("show");
+            // 未ログインの場合、サーバーから児童名簿を読み込む
+            await this.loadStudentRoster();
+        }
+    }
+
+    async onLoginSubmitted(e) {
+        e.preventDefault();
+        const classNum = this.$loginClassNum.val();
+        const studentSelectVal = this.$loginStudentSelect.val(); // 出席番号（studentId）
+        
+        let password = (this.$loginPassword.val() || "").toString();
+        // 児童が全角でパスワードを入力した場合を考慮し、全角英数字を半角に自動変換する
+        password = password.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+        }).trim();
+
+        if (classNum && studentSelectVal && password) {
+            const studentId = studentSelectVal;
+
+            await this.startProcessing("backdrop-loading");
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        "Content-Type": "text/plain"
+                    },
+                    body: JSON.stringify({
+                        action: "login",
+                        classNumber: classNum,
+                        studentId: studentId,
+                        password: password
+                    })
+                });
+                const res = await response.json();
+                if (res.status === "success") {
+                    const studentName = res.studentName || `${studentId}番`;
+
+                    window.localStorage.setItem("genko_classNumber", classNum);
+                    window.localStorage.setItem("genko_studentId", studentId);
+                    window.localStorage.setItem("genko_studentName", studentName);
+                    $("#login-error").addClass("d-none");
+                    await this.checkLoginStatus();
+
+                    // パスワード入力欄をクリア
+                    this.$loginPassword.val("");
+
+                    if (studentId === "0" || studentId === 0) {
+                        // 先生ログイン時は一括キャッシュロードのみ
+                        // checkLoginStatusの中で自動的にloadされます
+                    } else {
+                        // 児童ログイン時は通常の個別読み込み
+                        if (res.data) {
+                            const data = res.data;
+                            if (data.settings) {
+                                try {
+                                    const parsedSettings = JSON.parse(data.settings);
+                                    this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                                } catch (err) {
+                                    console.error("設定パースエラー:", err);
+                                }
+                            }
+                            if (data.text) {
+                                this.genko.setText(data.text);
+                            }
+                            
+                            // 先生からのアドバイスを表示する（一時的に非表示設定）
+                            this.$teacherCommentBox.addClass("d-none");
+                            if (data.teacherComment && data.teacherComment.trim() !== "") {
+                                this.$teacherCommentText.text(data.teacherComment);
+                            } else {
+                                this.$teacherCommentText.text("アドバイスはまだありません。");
+                            }
+                            
+                            console.log("スプレッドシートからの作文データのロードに成功しました");
+                        } else {
+                            this.genko.clear();
+                            this.$teacherCommentBox.addClass("d-none");
+                            this.$teacherCommentText.text("アドバイスはまだありません。");
+                            console.log("新規作文の作成を開始します");
+                        }
+
+                        this.triggerAutoSaveToServer(); // ログイン成功時に一度保存を送る
+                    }
+                } else {
+                    $("#login-error").text(res.message || "ログインに失敗しました。").removeClass("d-none");
+                }
+            } catch (err) {
+                console.error("ログイン認証エラー:", err);
+                $("#login-error").text("サーバーとの通信に失敗しました。").removeClass("d-none");
+            } finally {
+                this.endProcessing();
+            }
+        } else {
+            $("#login-error").text("入力項目に誤りがあります。").removeClass("d-none");
+        }
+    }
+
+    async onLogoutClicked(e) {
+        e.preventDefault();
+        if (confirm("別の人でログインし直しますか？\n（現在の作文データはそのまま残ります）")) {
+            window.localStorage.removeItem("genko_classNumber");
+            window.localStorage.removeItem("genko_studentId");
+            window.localStorage.removeItem("genko_studentName");
+            this.$loginClassNum.val("");
+            this.$loginStudentSelect.val("").prop("disabled", true);
+            this.$loginPassword.val("");
+            this.$teacherCommentBox.addClass("d-none");
+            this.$teacherCommentText.text("");
+            this.$teacherMenuBox.addClass("d-none");
+
+            this.teacherCachedWritings = [];
+            this.$teacherStudentSelect.empty().append(
+                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
+            );
+            $(".paper-print-header").remove();
+
+            // エディタをクリア
+            this.genko.clear();
+
+            await this.checkLoginStatus();
+        }
+    }
+
+    onInputChanged(e) {
+        this.triggerAutoSaveToServer();
+    }
+
+    triggerAutoSaveToServer() {
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+        }
+        this.autoSaveTimer = setTimeout(async () => {
+            const classNum = window.localStorage.getItem("genko_classNumber");
+            const studentId = window.localStorage.getItem("genko_studentId");
+            const studentName = window.localStorage.getItem("genko_studentName");
+
+            // 教師用アカウントは自分のデータを上書き保存しないように除外
+            if (studentId === "0" || studentId === 0) {
+                return;
+            }
+
+            if (classNum && studentId && studentName) {
+                const text = this.genko.getText();
+                const charCount = text.length;
+                const settingsData = {
+                    genkoSettings: {
+                        colSize: this.genko.colSize,
+                        rowSize: this.genko.rowSize,
+                        featuringColor: this.genko.$container.find(".genko-cell").css("border-color"),
+                        featuringFont: this.settings.featuringFont
+                    },
+                    appSettings: {
+                        wallpaper: this.settings.wallpaper
+                    }
+                };
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: "POST",
+                        mode: "cors",
+                        headers: {
+                            "Content-Type": "text/plain"
+                        },
+                        body: JSON.stringify({
+                            action: "save",
+                            classNumber: classNum,
+                            studentId: studentId,
+                            studentName: studentName,
+                            charCount: charCount,
+                            text: text,
+                            settings: JSON.stringify(settingsData)
+                        })
+                    });
+                    const res = await response.json();
+                    if (res.status === "success") {
+                        console.log("スプレッドシートへの自動保存に成功しました");
+                    } else {
+                        console.warn("自動保存失敗:", res.message);
+                    }
+                } catch (err) {
+                    console.error("自動保存エラー:", err);
+                }
+            }
+        }, 3000); // タイピング停止後3秒で保存
+    }
+
+    async loadStudentRoster() {
+        try {
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: JSON.stringify({
+                    action: "get_students"
+                })
+            });
+            const res = await response.json();
+            if (res.status === "success") {
+                this.studentRoster = res.data;
+                
+                // クラスセレクトボックスを初期化して充填
+                this.$loginClassNum.empty().append(
+                    $("<option>").val("").text("クラス（半角数字）を選択してください").prop("disabled", true).prop("selected", true)
+                );
+                this.$loginStudentSelect.empty().append(
+                    $("<option>").val("").text("先にクラスを選択してください").prop("disabled", true).prop("selected", true)
+                ).prop("disabled", true);
+                
+                const classes = Object.keys(this.studentRoster);
+                if (classes.length === 0) {
+                    $("#login-error").text("名簿データがスプレッドシートに登録されていません。").removeClass("d-none");
+                    return;
+                }
+                
+                classes.forEach(c => {
+                    this.$loginClassNum.append($("<option>").val(c).text(c));
+                });
+                $("#login-error").addClass("d-none");
+            } else {
+                $("#login-error").text("名簿データの取得に失敗しました。").removeClass("d-none");
+            }
+        } catch (err) {
+            console.error("名簿データの取得エラー:", err);
+            $("#login-error").text("サーバーとの通信に失敗しました。オフライン状態か、または設定が正しくない可能性があります。").removeClass("d-none");
+        }
+    }
+
+    onClassNumChanged(e) {
+        const selectedClass = this.$loginClassNum.val();
+        this.$loginStudentSelect.empty();
+        
+        if (!selectedClass || !this.studentRoster || !this.studentRoster[selectedClass]) {
+            this.$loginStudentSelect.append(
+                $("<option>").val("").text("先にクラスを選択してください").prop("disabled", true).prop("selected", true)
+            ).prop("disabled", true);
+            return;
+        }
+        
+        this.$loginStudentSelect.append(
+            $("<option>").val("").text("出席番号を選択してください").prop("disabled", true).prop("selected", true)
+        ).prop("disabled", false);
+        
+        const students = this.studentRoster[selectedClass];
+        students.forEach(student => {
+            const val = student.id;
+            const text = `${student.id}番`;
+            this.$loginStudentSelect.append($("<option>").val(val).text(text));
+        });
+    }
+
+    onTeacherExportPdfClicked(e) {
+        // 現在は一括PDF機能は児童選択方式に統合されたため使用しません
+        e.preventDefault();
+    }
+
+    async initTeacherWorkspace(classNum) {
+        await this.startProcessing("backdrop-loading");
+        try {
+            // そのクラスの全員の作文データをGASから一括取得してキャッシュ
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: JSON.stringify({
+                    action: "get_all_writings",
+                    classNumber: classNum
+                })
+            });
+            const res = await response.json();
+            this.teacherCachedWritings = (res.status === "success" && res.data) ? res.data : [];
+
+            // 児童選択セレクトボックスを組み立て
+            this.$teacherStudentSelect.empty().append(
+                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
+            );
+
+            // クラス名簿を取得
+            const students = this.studentRoster[classNum] || [];
+            students.forEach(s => {
+                if (s.id !== 0 && s.id !== "0") {
+                    // 作文データが存在するか
+                    const hasData = this.teacherCachedWritings.some(w => w.studentId == s.id && w.text && w.text.trim() !== "");
+                    const statusSuffix = hasData ? " 〇" : " (未入力)";
+                    
+                    const writing = this.teacherCachedWritings.find(w => w.studentId == s.id);
+                    const name = (writing && writing.studentName) ? writing.studentName : `${s.id}番`;
+                    
+                    this.$teacherStudentSelect.append(
+                        $("<option>").val(s.id).text(`${s.id}番 ${name}${statusSuffix}`)
+                    );
+                }
+            });
+
+        } catch (err) {
+            console.error("先生用データの初期化に失敗しました:", err);
+        } finally {
+            this.endProcessing();
+        }
+    }
+
+    onTeacherStudentSelected(e) {
+        const studentId = this.$teacherStudentSelect.val();
+        $(".paper-print-header").remove(); // 古いヘッダーを削除
+
+        if (!studentId) {
+            this.genko.clear();
+            return;
+        }
+
+        // キャッシュから児童データを検索
+        const w = this.teacherCachedWritings.find(item => item.studentId == studentId);
+
+        if (w && w.text && w.text.trim() !== "") {
+            // 設定の適用
+            if (w.settings) {
+                try {
+                    const parsedSettings = JSON.parse(w.settings);
+                    this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                } catch (err) {
+                    console.error("設定適用エラー:", err);
+                }
+            } else {
+                this.genko.clear();
+            }
+
+            this.genko.setText(w.text);
+            
+            // 少し待ってから、印刷用ヘッダータグを原稿用紙の上に埋め込む
+            setTimeout(() => {
+                $(".paper-print-header").remove();
+                const $papers = $(".genko-paper");
+                $papers.each(function(p) {
+                    const pageNumText = (p + 1) + "/" + $papers.length;
+                    const headerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + pageNumText;
+                    
+                    $("<div>")
+                        .addClass("paper-print-header")
+                        .text(headerText)
+                        .appendTo($(this));
+                });
+            }, 300);
+
+            console.log(`${studentId}番の作文を表示しました`);
+        } else {
+            this.genko.clear();
+            alert("この児童の保存された作文データはありません。");
+        }
+    }
+}
+
+$(() => new Main().setup());
