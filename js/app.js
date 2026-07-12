@@ -168,9 +168,7 @@ class Main {
         const originalTitle = document.title;
         document.title = " "; // 半角スペースにしてURLの自動出力を防ぎ、ヘッダーを完全に空欄にする
         window.print();
-        setTimeout(() => {
-            document.title = originalTitle;
-        }, 1000);
+        document.title = originalTitle; // 印刷ダイアログが閉じた後で同期的に復元
     }
 
     onExportTextClicked(e) {
