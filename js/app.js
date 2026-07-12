@@ -684,7 +684,8 @@ class Main {
                             studentName: studentName,
                             charCount: charCount,
                             text: text,
-                            settings: isTeacher ? JSON.stringify(settingsData) : ""
+                            settings: isTeacher ? JSON.stringify(settingsData) : "",
+                            isCompleted: isTeacher ? false : this.isCompletedStatus
                         })
                     });
                     const res = await response.json();

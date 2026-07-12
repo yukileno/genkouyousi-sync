@@ -9,7 +9,7 @@ function doPost(e) {
     
     // もしシートが完全に空の場合は、初期ヘッダーを設定する（念のため）
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ"]);
+      sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
     }
     
     if (action === "save") {
@@ -18,6 +18,7 @@ function doPost(e) {
       var charCount = params.charCount;
       var text = params.text;
       var settings = params.settings;
+      var isCompleted = params.isCompleted;
       var timestamp = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy/MM/dd HH:mm");
       
       var data = sheet.getDataRange().getValues();
@@ -40,6 +41,11 @@ function doPost(e) {
         // 教師(99番)の場合のみH列(設定データ)を保存する
         if (studentId == 99 || studentId == "99") {
           sheet.getRange(foundRow, 8).setValue(settings);  // H列: 設定
+        }
+        
+        // 児童用のできた！(完了)ステータスは J列（10列目）に書き込む
+        if (studentId != 99 && studentId != "99") {
+          sheet.getRange(foundRow, 10).setValue(isCompleted ? "できた" : "");
         }
         
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
@@ -67,13 +73,27 @@ function doPost(e) {
       
       for (var i = 1; i < data.length; i++) {
         if (normalizeClass(data[i][0]) == classNumber && data[i][1] == studentId) {
+          var isCompletedVal = data[i][9] === "できた"; // J列 (0-indexedで9)
+          var finalSettings = null;
+          if (teacherSettings) {
+            try {
+              var parsed = JSON.parse(teacherSettings);
+              parsed.isCompleted = isCompletedVal;
+              finalSettings = JSON.stringify(parsed);
+            } catch(e) {
+              finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+            }
+          } else {
+            finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+          }
+
           result = {
             classNumber: data[i][0],
             studentId: data[i][1],
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: teacherSettings // 教師の設定を優先適用
+            settings: finalSettings // 教師設定に「できた」状態をマージして返す
           };
           break;
         }
@@ -146,6 +166,20 @@ function doPost(e) {
               }
             }
 
+            var isCompletedVal = data[i][9] === "できた"; // J列
+            var finalSettings = null;
+            if (teacherSettings) {
+              try {
+                var parsed = JSON.parse(teacherSettings);
+                parsed.isCompleted = isCompletedVal;
+                finalSettings = JSON.stringify(parsed);
+              } catch(e) {
+                finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+              }
+            } else {
+              finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+            }
+
             // ログイン成功と同時に、同じ行 of のG列(本文)からデータを取得してロードする
             savedData = {
               classNumber: data[i][0],
@@ -153,7 +187,7 @@ function doPost(e) {
               studentName: studentName,
               charCount: data[i][5] || 0,
               text: data[i][6] || "",
-              settings: teacherSettings // 教師の設定を優先適用
+              settings: finalSettings
             };
           }
           break;
@@ -183,12 +217,14 @@ function doPost(e) {
       
       for (var i = 1; i < data.length; i++) {
         if (normalizeClass(data[i][0]) == classNumber) {
+          var isCompletedVal = data[i][9] === "できた"; // J列
+          
           writings.push({
             studentId: data[i][1],
             studentName: data[i][2] ? data[i][2].toString().trim() : "",
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: data[i][7] || null
+            settings: JSON.stringify({ isCompleted: isCompletedVal })
           });
         }
       }
@@ -213,13 +249,27 @@ function doPost(e) {
 
       for (var i = 1; i < data.length; i++) {
         if (normalizeClass(data[i][0]) == classNumber && data[i][1] == studentId) {
+          var isCompletedVal = data[i][9] === "できた"; // J列
+          var finalSettings = null;
+          if (teacherSettings) {
+            try {
+              var parsed = JSON.parse(teacherSettings);
+              parsed.isCompleted = isCompletedVal;
+              finalSettings = JSON.stringify(parsed);
+            } catch(e) {
+              finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+            }
+          } else {
+            finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
+          }
+
           result = {
             classNumber: data[i][0],
             studentId: data[i][1],
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: teacherSettings // 教師の設定を優先適用
+            settings: finalSettings
           };
           break;
         }
