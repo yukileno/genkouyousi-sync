@@ -706,7 +706,7 @@ class Main {
         if (immediate) {
             saveAction();
         } else {
-            this.autoSaveTimer = setTimeout(saveAction, 3000); // 通常はタイピング停止後3秒で保存
+            this.autoSaveTimer = setTimeout(saveAction, 10000); // 通常はタイピング停止後10秒で保存
         }
     }
 
