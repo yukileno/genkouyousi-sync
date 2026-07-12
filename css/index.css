@@ -1,542 +1,798 @@
-/* 
- * Desktop wallpaper by
- * - BEIZ images - https://www.beiz.jp/
- * - Subtle Patterns - https://www.subtlepatterns.com/
- * - Paper-co - http://free-paper-texture.com/
- * - Pixeden.com - Subtle Paper Tile Pattern Vol2 - http://www.pixeden.com/graphic-web-backgrounds/subtle-paper-tile-pattern-vol2
- */
+﻿import {GenkoYoshi} from "./genkoyoshi.js";
+import {Settings} from "./settings.js";
+import {SaveHandler} from "./savehandler.js";
 
-@media screen and (min-height: 1000px) {
-    body {
-        padding: calc((90vh - 800px) / 2) 0;
+// Google Apps Script(GAS)のWebアプリ of のデプロイURLを設定します
+// スプレッドシート連携を有効にするには、ここにURLを記述してください。
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwczI96EhZiMLuxjxMxmBImYdlv5uJH9iZrGxTlwtRQo1MWN8nNOuo5rt_A2S3QDEDl/exec";
+
+class Main {
+    constructor() {
+        this.browser = (/(msie|trident|edge|chrome|safari|firefox|opera)/
+                .exec(window.navigator.userAgent.toLowerCase()) || ["other"]).pop().replace("trident", "msie");
+
+        this.genko = new GenkoYoshi($(".genko"), 20, 20);
+        this.settings = new Settings($("#controlPane"), this);
+        this.saveHandler = new SaveHandler(this);
+        this.autoSaveTimer = null; // GAS自動保存用タイマー
+
+        $(window).on("unload", this.onClosing.bind(this));
+        setInterval(this.onTimerSaving.bind(this), 5 * 60 * 1000);
+
+        this.$pageCss = $("<style>").appendTo($("head"));
+        this.$backdrop = null;
+
+        this.studentRoster = null;
+        this.teacherCachedWritings = []; // 教師用：読み込んだ児童作文データのキャッシュ
+        
+        this.$loginClassNum = $("#login-class-num").change(this.onClassNumChanged.bind(this));
+        this.$loginStudentSelect = $("#login-student-select");
+        this.$loginPassword = $("#login-password"); // パスワードフィールド
+        this.$teacherCommentBox = $("#teacher-comment-box");
+        this.$teacherCommentText = $("#teacher-comment-text");
+        this.$teacherMenuBox = $("#teacher-menu-box");
+        this.$teacherStudentSelect = $("#teacher-student-select").change(this.onTeacherStudentSelected.bind(this));
+
+        // ログイン要素の初期化
+        this.$dialogLogin = $("#dialog-login").modal({show: false, backdrop: 'static', keyboard: false});
+        $("#loginForm").submit(this.onLoginSubmitted.bind(this));
+        $("#logoutBtn").click(this.onLogoutClicked.bind(this));
+
+        // リアルタイムの文字入力を監視
+        $(document).on("input", this.onInputChanged.bind(this));
+
+        // Buttons
+        this.$saveBtn = $("#saveBtn").click(this.onSaveClicked.bind(this));
+        this.$undoBtn = $("#undoBtn").click(this.onUndoClicked.bind(this));
+        this.$redoBtn = $("#redoBtn").click(this.onRedoClicked.bind(this));
+        this.$printBtn = $("#printBtn").click(this.onPrintClicked.bind(this));
+        this.$fullscreenBtn = $("#fullscreenBtn").click(this.onFullscreenClicked.bind(this));
+
+        // Export text
+        this.$exportBtn = $("#export-text").click(this.onExportTextClicked.bind(this));
+        this.$dialogExport = $("#dialog-export").modal({show: false});
+        this.$dialogExport.find(".btn-okay").click(this.onExportTextConfirmed.bind(this));
+
+        // Copy image to clipboard
+        this.$copyImageBtn = $("#copy-image").click(this.onCopyImageClicked.bind(this));
+
+        // Export as image
+        this.$exportImageBtn = $("#export-image").click(this.onExportImageClicked.bind(this));
+        this.$dialogExportImage = $("#dialog-export-image").modal({show: false});
+        this.$dialogExportImage.find("#btn-export-image").click(this.onExportImageConfirmed.bind(this));
+        $(".btn-image-export-mode input").change(this.updateExportImageMode.bind(this));
+
+        // Twitter share button
+        $("#share-twitter").click(this.onShareTwitterClicked.bind(this));
+
+        // Define drawer action
+        this.$drawers = $(".drawer");
+        this.$drawers.each((idx, drawer) => {
+            $(drawer).find(".drawer-accordion-box").hide();
+            $(drawer).find(".drawer-header").click(e => this.onDrawerClicked(e, $(drawer)));
+        });
+
+        $(document).on('click touchend', e => {
+            if (!$(e.target).closest(".drawer").length) {
+                this.$drawers.find(".drawer-accordion-box").hide(200);
+                this.$drawers.removeClass("active");
+            }
+        });
+    }
+
+    async setup() {
+        // 同期関数であるloadを呼び出します
+        this.saveHandler.load();
+        
+        try {
+            // 原稿用紙の初期化（非同期）を待ちます
+            await this.genko.init();
+            
+            this.settings.init();
+            this.setPrintPageSize(this.genko.rowSize, this.genko.colSize);
+            $('[data-toggle="tooltip"]').tooltip();
+            
+            // 起動時は共有PCでの安全のため、常にログイン情報をクリアして認証させる
+            window.localStorage.removeItem("genko_classNumber");
+            window.localStorage.removeItem("genko_studentId");
+            window.localStorage.removeItem("genko_studentName");
+
+            // ログイン状態を検証
+            await this.checkLoginStatus(); 
+        } catch (err) {
+            console.error("初期化中にエラーが発生しました:", err);
+        }
+    }
+
+    onDrawerClicked(e, $drawer) {
+        var $accordion = $drawer.find(".drawer-accordion-box");
+        var toggle = !$drawer.hasClass("active");
+
+        this.$drawers.find(".drawer-accordion-box").hide(200);
+        this.$drawers.removeClass("active");
+
+        if (toggle) {
+            $accordion.show(200);
+        } else {
+            $accordion.hide(200);
+        }
+        $drawer.toggleClass("active", toggle);
+    }
+
+    onUndoClicked() {
+        this.genko.undo();
+        this.triggerAutoSaveToServer();
+    }
+
+    onRedoClicked() {
+        this.genko.redo();
+        this.triggerAutoSaveToServer();
+    }
+
+    setPrintPageSize(rows, cols) {
+        if (rows == 20 && cols == 20) {
+            // 400字詰
+            this.$pageCss.html("@page {size: A4 landscape; margin: 12mm 10mm 5mm 10mm;}")
+        } else if (rows == 10 && cols == 20) {
+            // 200字詰
+            this.$pageCss.html("@page {size: A5 portrait; margin: 15mm 10mm 15mm 10mm;}")
+        } else {
+            this.$pageCss.html("");
+        }
+    }
+
+    onSaveClicked() {
+        this.saveHandler.save();
+    }
+
+    onFullscreenClicked() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    onPrintClicked() {
+        window.print();
+    }
+
+    onExportTextClicked(e) {
+        this.$dialogExport.modal("show");
+    }
+
+    onExportTextConfirmed(e) {
+        var text = this.genko.getText();
+        var link = document.createElement("a");
+        var url = URL.createObjectURL(new Blob([text], {type: "text/plain"}));
+        link.href = url;
+        link.download = this.$dialogExport.find("#export-filename").val();
+        //link.dataset.downloadurl = ["text/plain", link.download, link.href].join(":");
+        link.click();
+        this.$dialogExport.modal("hide");
+    }
+
+    onExportImageClicked(e) {
+        this.$dialogExportImage.modal("show");
+        this.updateExportImageMode();
+    }
+    
+    onExportImageConfirmed(e) {
+        const $pages = this.getPages();
+        const isSinglePage = $pages.length == 1;
+        const isAllInOne = $("#imageExportAllInOne").is(":checked") || isSinglePage;
+        const funcExportAsImage = isAllInOne ? this.exportAsImage : this.exportAsImageEachPage;
+
+        this.$dialogExportImage.modal("hide");
+        this.startProcessing("backdrop-export-image")
+            .then(funcExportAsImage.bind(this))
+            .then(this.endProcessing.bind(this));
+    }
+
+    updateExportImageMode() {
+        const $pages = this.getPages();
+        const isSinglePage = $pages.length == 1;
+        const isAllInOne = $("#imageExportAllInOne").is(":checked");
+        let postfix;
+
+        $(".btn-image-export-mode")
+            .toggleClass("disabled", isSinglePage)
+            .toggleClass("btn-outline-primary", !isSinglePage)
+            .toggleClass("btn-outline-secondary", isSinglePage)
+            .attr("inert", isSinglePage ? "inert" : null);
+
+        if (isAllInOne || isSinglePage) {
+            postfix = ".png";
+            $("#imageFilePagingDesc").hide();
+        } else {
+            postfix = "-<i>ページ数</i>.png";
+            $("#imageFilePagingDesc").show();
+        }
+        $("#image-filename-postfix").html(postfix);
+    }
+
+    exportAsImage() {
+        return new Promise((resolve, reject) => {
+            $(document).scrollTop(0);
+            $("body").css({"padding": "0"});
+            $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+            $(".genko-body").css({"margin": "0"});
+            $(".genko-paper").css({"margin": "5mm"});
+            $(".genko-paper.blank").hide();
+            html2canvas(document.querySelector(".genko"), {
+                foreignObjectRendering: this.browser != "safari",
+                //useCORS: true,
+                //allowTaint: true,
+                windowWidth: $(".genko").width(),
+                ignoreElements: elem => $(elem).is(".genko-ime, .genko-caret"),
+                onclone: (doc) => {
+                    $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                    $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                    $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                    $(doc).find(".newline-after").each((idx, e) => {
+                        $(e).text($(e).text());
+                    });
+                    $(doc).find(".hw-space.after").each((idx, e) => {
+                        $(e).text($(e).text() + "\xa0");
+                    })
+                    $(doc).find(".hw-space.before").each((idx, e) => {
+                        $(e).text("\xa0" + $(e).text());
+                    })
+                }
+            }).then(canvas => {
+                // $("body").append(canvas); // Output image on screen for debugging
+                $("body").css({"padding": ""});
+                $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+                $(".genko-body").css({"margin": ""});
+                $(".genko-paper").css({"margin": ""});
+                $(".genko-paper.blank").show();
+                var link = document.createElement("a");
+                var url = canvas.toDataURL();
+                var filename = $("#export-image-filename").val() + ".png"
+                link.href = url;
+                link.download = filename;
+                link.click();
+                $(() => resolve())
+            });
+        });
+    }
+
+    async exportAsImageEachPage() {
+        let $pages = this.getPages();
+        $(document).scrollTop(0);
+        $("body").css({"padding": "0"});
+        $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+        $(".genko-body").css({"margin": "0"});
+        $(".genko-paper").css({"margin": "5mm"});
+        $(".genko-paper.blank").hide();
+        try {
+            for (const [idx, page] of $pages.toArray().entries()) {
+                $pages.hide();
+                $(page).show();
+                const canvas = await html2canvas(document.querySelector(".genko"), {
+                    foreignObjectRendering: this.browser != "safari",
+                    onclone: (doc) => {
+                        $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                        $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                        $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                        $(doc).find(".newline-after").each((idx, e) => {
+                            $(e).text($(e).text());
+                        });
+                        $(doc).find(".hw-space.after").each((idx, e) => {
+                            $(e).text($(e).text() + "\xa0");
+                        })
+                        $(doc).find(".hw-space.before").each((idx, e) => {
+                            $(e).text("\xa0" + $(e).text());
+                        })
+                    }
+                });
+                var link = document.createElement("a");
+                var url = canvas.toDataURL();
+                var filename = $("#export-image-filename").val() + `-${(idx + 1).toString().padStart(2, "0")}.png`
+                link.href = url;
+                link.download = filename;
+                link.click();
+            }
+        } finally {
+            $pages.show();
+            $("body").css({"padding": ""});
+            $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+            $(".genko-body").css({"margin": ""});
+            $(".genko-paper").css({"margin": ""});
+            $(".genko-paper.blank").show();
+        }
+    }
+
+    onCopyImageClicked(e) {
+        this.startProcessing("backdrop-copy-image")
+            .then(this.copyAsImage.bind(this))
+            .then(this.endProcessing.bind(this))
+            .catch(err => {
+                this.endProcessing();
+                console.error("画像コピーエラー:", err);
+                alert("画像のコピー中にエラーが発生しました:\n" + err.message);
+            });
+    }
+
+    async copyAsImage() {
+        let $pages = this.getPages();
+        $(document).scrollTop(0);
+        $("body").css({"padding": "0"});
+        $(".genko").css({"padding": "5mm", "margin": "0", "justify-content": "left", "width": "min-content"});
+        $(".genko-body").css({"margin": "0"});
+        $(".genko-paper").css({"margin": "5mm"});
+        $(".genko-paper.blank").hide();
+
+        try {
+            const canvas = await html2canvas(document.querySelector(".genko"), {
+                scale: 1.5,
+                foreignObjectRendering: this.browser != "safari",
+                onclone: (doc) => {
+                    $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
+                    $(doc).find(".char-body:has(.fw-space)").html("<div/>");
+                    $(doc).find(".char-body:has(.newline), .char-body:has(.hw-space.single)").html("<div/>");
+                    $(doc).find(".newline-after").each((idx, e) => {
+                        $(e).text($(e).text());
+                    });
+                    $(doc).find(".hw-space.after").each((idx, e) => {
+                        $(e).text($(e).text() + "\xa0");
+                    });
+                    $(doc).find(".hw-space.before").each((idx, e) => {
+                        $(e).text("\xa0" + $(e).text());
+                    });
+                }
+            });
+
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        reject(new Error("画像の生成に失敗しました。"));
+                        return;
+                    }
+                    if (navigator.clipboard && window.ClipboardItem) {
+                        try {
+                            const item = new ClipboardItem({ "image/png": blob });
+                            await navigator.clipboard.write([item]);
+                            alert("原稿用紙の画像をコピーしました！\nロイロノートや別ソフトの画面で貼り付け（Ctrl + V）して提出してください。");
+                            resolve();
+                        } catch (clipErr) {
+                            reject(clipErr);
+                        }
+                    } else {
+                        reject(new Error("お使いのブラウザが画像のコピー機能に対応していません。"));
+                    }
+                }, "image/png");
+            });
+        } finally {
+            $pages.show();
+            $("body").css({"padding": ""});
+            $(".genko").css({"padding": "", "margin": "", "justify-content": "", "width": ""});
+            $(".genko-body").css({"margin": ""});
+            $(".genko-paper").css({"margin": ""});
+            $(".genko-paper.blank").show();
+        }
+    }
+
+    onShareTwitterClicked(e) {
+    }
+
+    setWallpaper(key) {
+        $("body").removeClass().addClass("skin-" + key);
+    }
+
+    setLightColor(val) {
+        var ratio = Math.cos(val * Math.PI / 2 + Math.PI) + 1;
+        $(".bg-lighting").css("background-color", `rgb(255, ${184 + 71 * ratio}, ${126 + 129 * ratio})`);
+    }
+
+    startProcessing(backdropClass) {
+        return new Promise((resolve, reject) => {
+            this.$backdrop = $(`<div id='processingBackdrop' class='modal-backdrop show ${backdropClass}'>`)
+                    .appendTo(document.body);
+            $(() => resolve());
+        });
+    }
+
+    endProcessing() {
+        setTimeout(() => {
+            if (this.$backdrop) {
+                this.$backdrop.fadeOut(500, function() { $(this).remove(); });
+                this.$backdrop = null;
+            }
+        });
+    }
+
+    onTimerSaving() {
+        this.saveHandler.save();
+    }
+
+    onClosing() {
+        this.saveHandler.save();
+    }
+
+    getPages() {
+        return $(".genko-paper:not(.blank)");
+    }
+
+    async checkLoginStatus() {
+        const classNum = window.localStorage.getItem("genko_classNumber");
+        const studentId = window.localStorage.getItem("genko_studentId");
+        const studentName = window.localStorage.getItem("genko_studentName");
+
+        if (classNum && studentId && studentName) {
+            $("#login-display-class").text(classNum + "組　" + studentId + "番");
+            $("#login-display-name").text(studentName);
+            
+            // 教師用メニューの表示制御 (出席番号「0」を教師用とする)
+            if (studentId === "0" || studentId === 0) {
+                this.$teacherMenuBox.removeClass("d-none");
+                // 先生用ワークスペースの初期化と児童データのフェッチ
+                await this.initTeacherWorkspace(classNum);
+            } else {
+                this.$teacherMenuBox.addClass("d-none");
+            }
+            
+            this.$dialogLogin.modal("hide");
+        } else {
+            $("#login-display-class").text("未ログイン");
+            $("#login-display-name").text("ゲスト");
+            this.$teacherMenuBox.addClass("d-none");
+            this.$dialogLogin.modal("show");
+            // 未ログインの場合、サーバーから児童名簿を読み込む
+            await this.loadStudentRoster();
+        }
+    }
+
+    async onLoginSubmitted(e) {
+        e.preventDefault();
+        const classNum = this.$loginClassNum.val();
+        const studentSelectVal = this.$loginStudentSelect.val(); // 出席番号（studentId）
+        
+        let password = (this.$loginPassword.val() || "").toString();
+        // 児童が全角でパスワードを入力した場合を考慮し、全角英数字を半角に自動変換する
+        password = password.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+        }).trim();
+
+        if (classNum && studentSelectVal && password) {
+            const studentId = studentSelectVal;
+
+            await this.startProcessing("backdrop-loading");
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        "Content-Type": "text/plain"
+                    },
+                    body: JSON.stringify({
+                        action: "login",
+                        classNumber: classNum,
+                        studentId: studentId,
+                        password: password
+                    })
+                });
+                const res = await response.json();
+                if (res.status === "success") {
+                    const studentName = res.studentName || `${studentId}番`;
+
+                    window.localStorage.setItem("genko_classNumber", classNum);
+                    window.localStorage.setItem("genko_studentId", studentId);
+                    window.localStorage.setItem("genko_studentName", studentName);
+                    $("#login-error").addClass("d-none");
+                    await this.checkLoginStatus();
+
+                    // パスワード入力欄をクリア
+                    this.$loginPassword.val("");
+
+                    if (studentId === "0" || studentId === 0) {
+                        // 先生ログイン時は一括キャッシュロードのみ
+                        // checkLoginStatusの中で自動的にloadされます
+                    } else {
+                        // 児童ログイン時は通常の個別読み込み
+                        if (res.data) {
+                            const data = res.data;
+                            if (data.settings) {
+                                try {
+                                    const parsedSettings = JSON.parse(data.settings);
+                                    this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                                } catch (err) {
+                                    console.error("設定パースエラー:", err);
+                                }
+                            }
+                            if (data.text) {
+                                this.genko.setText(data.text);
+                            }
+                            
+                            // 先生からのアドバイスを表示する（一時的に非表示設定）
+                            this.$teacherCommentBox.addClass("d-none");
+                            if (data.teacherComment && data.teacherComment.trim() !== "") {
+                                this.$teacherCommentText.text(data.teacherComment);
+                            } else {
+                                this.$teacherCommentText.text("アドバイスはまだありません。");
+                            }
+                            
+                            console.log("スプレッドシートからの作文データのロードに成功しました");
+                        } else {
+                            this.genko.clear();
+                            this.$teacherCommentBox.addClass("d-none");
+                            this.$teacherCommentText.text("アドバイスはまだありません。");
+                            console.log("新規作文の作成を開始します");
+                        }
+
+                        this.triggerAutoSaveToServer(); // ログイン成功時に一度保存を送る
+                    }
+                } else {
+                    $("#login-error").text(res.message || "ログインに失敗しました。").removeClass("d-none");
+                }
+            } catch (err) {
+                console.error("ログイン認証エラー:", err);
+                $("#login-error").text("サーバーとの通信に失敗しました。").removeClass("d-none");
+            } finally {
+                this.endProcessing();
+            }
+        } else {
+            $("#login-error").text("入力項目に誤りがあります。").removeClass("d-none");
+        }
+    }
+
+    async onLogoutClicked(e) {
+        e.preventDefault();
+        if (confirm("別の人でログインし直しますか？\n（現在の作文データはそのまま残ります）")) {
+            window.localStorage.removeItem("genko_classNumber");
+            window.localStorage.removeItem("genko_studentId");
+            window.localStorage.removeItem("genko_studentName");
+            this.$loginClassNum.val("");
+            this.$loginStudentSelect.val("").prop("disabled", true);
+            this.$loginPassword.val("");
+            this.$teacherCommentBox.addClass("d-none");
+            this.$teacherCommentText.text("");
+            this.$teacherMenuBox.addClass("d-none");
+
+            this.teacherCachedWritings = [];
+            this.$teacherStudentSelect.empty().append(
+                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
+            );
+            $(".paper-print-header").remove();
+
+            // エディタをクリア
+            this.genko.clear();
+
+            await this.checkLoginStatus();
+        }
+    }
+
+    onInputChanged(e) {
+        this.triggerAutoSaveToServer();
+    }
+
+    triggerAutoSaveToServer() {
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+        }
+        this.autoSaveTimer = setTimeout(async () => {
+            const classNum = window.localStorage.getItem("genko_classNumber");
+            const studentId = window.localStorage.getItem("genko_studentId");
+            const studentName = window.localStorage.getItem("genko_studentName");
+
+            // 教師用アカウントは自分のデータを上書き保存しないように除外
+            if (studentId === "0" || studentId === 0) {
+                return;
+            }
+
+            if (classNum && studentId && studentName) {
+                const text = this.genko.getText();
+                const charCount = text.length;
+                const settingsData = {
+                    genkoSettings: {
+                        colSize: this.genko.colSize,
+                        rowSize: this.genko.rowSize,
+                        featuringColor: this.genko.$container.find(".genko-cell").css("border-color"),
+                        featuringFont: this.settings.featuringFont
+                    },
+                    appSettings: {
+                        wallpaper: this.settings.wallpaper
+                    }
+                };
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: "POST",
+                        mode: "cors",
+                        headers: {
+                            "Content-Type": "text/plain"
+                        },
+                        body: JSON.stringify({
+                            action: "save",
+                            classNumber: classNum,
+                            studentId: studentId,
+                            studentName: studentName,
+                            charCount: charCount,
+                            text: text,
+                            settings: JSON.stringify(settingsData)
+                        })
+                    });
+                    const res = await response.json();
+                    if (res.status === "success") {
+                        console.log("スプレッドシートへの自動保存に成功しました");
+                    } else {
+                        console.warn("自動保存失敗:", res.message);
+                    }
+                } catch (err) {
+                    console.error("自動保存エラー:", err);
+                }
+            }
+        }, 3000); // タイピング停止後3秒で保存
+    }
+
+    async loadStudentRoster() {
+        try {
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: JSON.stringify({
+                    action: "get_students"
+                })
+            });
+            const res = await response.json();
+            if (res.status === "success") {
+                this.studentRoster = res.data;
+                
+                // クラスセレクトボックスを初期化して充填
+                this.$loginClassNum.empty().append(
+                    $("<option>").val("").text("クラス（半角数字）を選択してください").prop("disabled", true).prop("selected", true)
+                );
+                this.$loginStudentSelect.empty().append(
+                    $("<option>").val("").text("先にクラスを選択してください").prop("disabled", true).prop("selected", true)
+                ).prop("disabled", true);
+                
+                const classes = Object.keys(this.studentRoster);
+                if (classes.length === 0) {
+                    $("#login-error").text("名簿データがスプレッドシートに登録されていません。").removeClass("d-none");
+                    return;
+                }
+                
+                classes.forEach(c => {
+                    this.$loginClassNum.append($("<option>").val(c).text(c));
+                });
+                $("#login-error").addClass("d-none");
+            } else {
+                $("#login-error").text("名簿データの取得に失敗しました。").removeClass("d-none");
+            }
+        } catch (err) {
+            console.error("名簿データの取得エラー:", err);
+            $("#login-error").text("サーバーとの通信に失敗しました。オフライン状態か、または設定が正しくない可能性があります。").removeClass("d-none");
+        }
+    }
+
+    onClassNumChanged(e) {
+        const selectedClass = this.$loginClassNum.val();
+        this.$loginStudentSelect.empty();
+        
+        if (!selectedClass || !this.studentRoster || !this.studentRoster[selectedClass]) {
+            this.$loginStudentSelect.append(
+                $("<option>").val("").text("先にクラスを選択してください").prop("disabled", true).prop("selected", true)
+            ).prop("disabled", true);
+            return;
+        }
+        
+        this.$loginStudentSelect.append(
+            $("<option>").val("").text("出席番号を選択してください").prop("disabled", true).prop("selected", true)
+        ).prop("disabled", false);
+        
+        const students = this.studentRoster[selectedClass];
+        students.forEach(student => {
+            const val = student.id;
+            const text = `${student.id}番`;
+            this.$loginStudentSelect.append($("<option>").val(val).text(text));
+        });
+    }
+
+    onTeacherExportPdfClicked(e) {
+        // 現在は一括PDF機能は児童選択方式に統合されたため使用しません
+        e.preventDefault();
+    }
+
+    async initTeacherWorkspace(classNum) {
+        await this.startProcessing("backdrop-loading");
+        try {
+            // そのクラスの全員の作文データをGASから一括取得してキャッシュ
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: JSON.stringify({
+                    action: "get_all_writings",
+                    classNumber: classNum
+                })
+            });
+            const res = await response.json();
+            this.teacherCachedWritings = (res.status === "success" && res.data) ? res.data : [];
+
+            // 児童選択セレクトボックスを組み立て
+            this.$teacherStudentSelect.empty().append(
+                $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
+            );
+
+            // クラス名簿を取得
+            const students = this.studentRoster[classNum] || [];
+            students.forEach(s => {
+                if (s.id !== 0 && s.id !== "0") {
+                    // 作文データが存在するか
+                    const hasData = this.teacherCachedWritings.some(w => w.studentId == s.id && w.text && w.text.trim() !== "");
+                    const statusSuffix = hasData ? " 〇" : " (未入力)";
+                    
+                    const writing = this.teacherCachedWritings.find(w => w.studentId == s.id);
+                    const name = (writing && writing.studentName) ? writing.studentName : `${s.id}番`;
+                    
+                    this.$teacherStudentSelect.append(
+                        $("<option>").val(s.id).text(`${s.id}番 ${name}${statusSuffix}`)
+                    );
+                }
+            });
+
+        } catch (err) {
+            console.error("先生用データの初期化に失敗しました:", err);
+        } finally {
+            this.endProcessing();
+        }
+    }
+
+    onTeacherStudentSelected(e) {
+        const studentId = this.$teacherStudentSelect.val();
+        $(".paper-print-header").remove(); // 古いヘッダーを削除
+
+        if (!studentId) {
+            this.genko.clear();
+            return;
+        }
+
+        // キャッシュから児童データを検索
+        const w = this.teacherCachedWritings.find(item => item.studentId == studentId);
+
+        if (w && w.text && w.text.trim() !== "") {
+            // 設定の適用
+            if (w.settings) {
+                try {
+                    const parsedSettings = JSON.parse(w.settings);
+                    this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                } catch (err) {
+                    console.error("設定適用エラー:", err);
+                }
+            } else {
+                this.genko.clear();
+            }
+
+            this.genko.setText(w.text);
+            
+            // 少し待ってから、印刷用ヘッダータグを原稿用紙の上に埋め込む
+            setTimeout(() => {
+                $(".paper-print-header").remove();
+                const $papers = $(".genko-paper");
+                $papers.each(function(p) {
+                    const pageNumText = (p + 1) + "/" + $papers.length;
+                    const headerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + pageNumText;
+                    
+                    $("<div>")
+                        .addClass("paper-print-header")
+                        .text(headerText)
+                        .appendTo($(this));
+                });
+            }, 300);
+
+            console.log(`${studentId}番の作文を表示しました`);
+        } else {
+            this.genko.clear();
+            alert("この児童の保存された作文データはありません。");
+        }
     }
 }
 
-@media screen {
-
-    ::-webkit-scrollbar {
-        width: 15px;
-        height: 15px;
-    }
-    ::-webkit-scrollbar-track {
-        background: rgba(250, 250, 250, 1);
-        border: solid 1px rgba(245, 245, 245, 1);
-    }
-    ::-webkit-scrollbar-thumb {
-        background: rgba(190, 190, 190, 1);
-        border-radius: 10px;
-        box-sizing: border-box;
-        border: solid 3px rgba(250, 250, 250, 1);
-        transition: all 200ms;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(125, 125, 125, 1);
-    }
-    ::-webkit-scrollbar-corner {
-        background: rgba(250, 250, 250, 1);
-    }
-
-    div.bg-desktop {
-        background-attachment: fixed;
-        position: fixed;
-        height: 100%;
-        width: 100%;
-        z-index: -2;
-        pointer-events: none;
-        top: 0px;
-    }
-
-    body.skin-solid-white div.bg-desktop {
-        background-color: white;
-    }
-    body.skin-solid-white header {
-        color: rgba(0, 0, 0, 0.25);
-        text-shadow: 0 0 2px rgba(0, 0, 0, 0.25);
-        mix-blend-mode: normal;
-    }
-
-    body.skin-solid-lightgrey div.bg-desktop {
-        background-color: #e0e0e0;
-    }
-    body.skin-solid-darkgrey div.bg-desktop {
-        background-color: #a0a0a0;
-    }
-    body.skin-solid-cream div.bg-desktop {
-        background-color: rgb(235, 228, 206);
-    }
-    body.skin-cover-wood1 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood1.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-wood2 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood2.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-wood3 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood3.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-wood4 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood4.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-wood5 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood5.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-wood6 div.bg-desktop {
-        background-image: url(../img/desktop/cover/wood6.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-cardboard1 div.bg-desktop {
-        background-image: url(../img/desktop/cover/cardboard-waved.jpg);
-        background-size: cover;
-    }
-    body.skin-cover-cardboard2 div.bg-desktop {
-        background-image: url(../img/desktop/cover/cardboard-damaged.jpg);
-        background-size: cover;
-    }
-    body.skin-pattern-wood1 div.bg-desktop {
-        background: url(../img/desktop/pattern/wood1.jpg);
-    }
-    body.skin-pattern-wood1 header {
-        color: rgba(255, 255, 255, 0.3);
-        mix-blend-mode: normal;
-    }
-    body.skin-pattern-wood2 div.bg-desktop {
-        background: url(../img/desktop/pattern/wood2.png);
-    }
-
-    body:not(.skin-solid-white):not(.skin-solid-black) .genko-paper {
-        background-image: url(../img/desktop/paper2.png);
-        box-shadow: none;
-    }
-
-    div.bg-shade {
-        background: fixed radial-gradient(ellipse at center,rgba(0,0,0,0.0) 0%,rgba(0,0,0,0.05) 60%,rgba(0,0,0,0.5) 100%);
-        position: fixed;
-        height: 100%;
-        width: 100%;
-        z-index: -1;
-        pointer-events: none;
-        top: 0px;
-    }
-
-    div.bg-lighting {
-        position: fixed;
-        height: 100%;
-        width: 100%;
-        z-index: 300;
-        pointer-events: none;
-        background-color: white;
-        mix-blend-mode: multiply;
-        top: 0px;
-    }
-
-    header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        margin: 10px;
-        z-index: -2;
-        pointer-events: none;
-        font-family: 'Yu Mincho', 'YuMincho';
-        font-feature-settings: "vpal" 1;
-        color: black;
-        writing-mode: vertical-rl;
-        white-space: nowrap;
-        mix-blend-mode: overlay;
-        font-size: 24pt;
-        font-weight: 800;
-        text-shadow: 0 0 2px black;
-        line-height: 1;
-    }
-
-    .tc {
-        -webkit-text-combine: horizontal;
-        -ms-text-combine-horizontal: all;
-        text-combine-upright: all;
-    }    
-
-    .drawer {
-        position: fixed;
-        z-index: 200;
-        right: 0;
-        display: table;
-        border-radius: 15px 0 0 15px;
-        background-color: white;
-        box-shadow: 2px 2px 20px 0px rgba(0,0,0,0.3);
-    }
-    .drawer.active {
-        z-index: 201;
-    }
-
-    .drawer-row {
-        display: table-row;
-    }
-
-    .drawer-container {
-        display: table-cell;
-        vertical-align: top;
-        overflow: hidden;
-    }
-
-    .drawer-container.drawer-header {
-        width: 55px;
-        border-radius: 15px 0 0 15px;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    .drawer-container.drawer-header:hover {
-        background-color: #888;
-    }
-
-    .drawer-title {
-        color: #888;
-        font-family: 'Yu Mincho', 'YuMincho';
-        font-size: 35px;
-        line-height: 35px;
-        writing-mode: vertical-rl;
-        text-align: center;
-        padding: 10px;
-        white-space: nowrap;
-        user-select: none;
-        -webkit-user-select: none;
-        transition: all 0.2s;
-    }
-    .drawer-container.drawer-header:hover .drawer-title {
-        color: white;
-    }
-
-
-    .drawer-accordion-box {
-        display: none;
-        max-height: 100vh;
-    }
-    .drawer-contents {
-        padding: 15px 15px 0px;
-    }
-    .drawer-item {
-        margin-bottom: 15px;
-    }
-    .drawer-item.align-right {
-        text-align: right;
-    }
-
-    .input-group > .input-group-prepend.input-group-header {
-        flex: 0 0 calc(6em + 1px);
-    }
-    .input-group > .input-group-prepend.input-group-header .input-group-text {
-        width: 100%;
-    }
-    .card-horizontal-header {
-        width: 6em;
-    }
-
-    input.custom-range {
-        padding-left: .75rem;
-    }
-
-    /* 設定タブ */
-    #controlPane {
-        top: 10px;
-    }
-    #controlPane .drawer-contents {
-        width: 380px;
-        max-height: calc(100vh - 20px);
-        overflow: auto;
-    }
-
-    .sample-newline {
-        display: inline-block;
-        writing-mode: vertical-rl;
-        font-family: "Apple Symbols", Meiryo, sans-serif;
-        font-size: 20px;
-        line-height: 0.5em;
-        padding: 0 5px;
-    }
-    .sample-halfwidth-space {
-        display: inline-block;
-        font-family: "Apple Symbols", "Lucida Sans Unicode", sans-serif;
-        line-height: 1em;
-        padding: 0 5px;
-    }
-    .sample-fullwidth-space {
-        display: inline-block;
-        width: 1.5em;
-        font-family: "Apple Symbols", Meiryo, serif;
-        line-height: 1em;
-        padding: 0 5px;
-    }
-
-    /* Checkbox */
-    .custom-checkbox {
-        width: 100%;
-    }
-    .custom-control-label {
-        width: 100%;
-    }
-
-    .drawer .card .card-horizontal-header {
-        background-color: #e9ecef;
-        border-right: 1px solid rgba(0,0,0,.125);
-        border-bottom: none;
-        border-radius: 0;
-    }
-    .drawer .card .card-horizontal-header,
-    .drawer .card .card-horizontal-body {
-        padding: .375rem .75rem;
-    }
-
-    .drawer .card .selection-style-type {
-        background-color: #e9ecef;
-        margin: .375rem -.75rem;
-        padding: 0.2rem .75rem;
-        font-size: 0.8em;
-    }
-
-    .drawer .card .selection-style-type:first-child {
-        margin-top: -.375rem;
-    }
-
-    /* Size preset */
-    .size-preset {
-        display: flex;
-        justify-content: stretch;
-    }
-    .btn-group.size-preset button {
-        flex: 1 1 auto;
-    }
-
-    /* Color palette */
-    #colorPalette .btn,
-    #selectionStyle .btn {
-        padding: .25rem;
-        border-radius: .2rem;
-        margin: 2px;
-    }
-    #colorPalette .color-indicator,
-    #selectionStyle .color-indicator {
-        height: 15px;
-        width: 30px;
-        border: 1px solid white;
-        pointer-events: none;
-    }
-
-    .btn.disabled .color-indicator {
-        background-color: #ccc !important;
-    }
-
-    /* 共有タブ */
-    #sharePane {
-        top: 120px;
-    }
-
-    #sharePane .drawer-contents {
-        width: 350px;
-        max-height: calc(100vh - 240px);
-        overflow: auto;
-    }
-
-    /* 説明書タブ */
-    #guidePane {
-        top: 230px;
-    }
-    #guidePane .drawer-contents {
-        height: 800px;
-        max-height: calc(100vh - 300px);
-        width: 1600px;
-        max-width: 90vw;
-        overflow: auto;
-        margin-top: 20px;
-        margin-bottom: 20px;
-        padding: 0;
-    }
-
-    #guide-content {
-        font-family: 'Yu Mincho', 'YuMincho', 'gk-HiraginoMincho';
-        writing-mode: vertical-rl;
-        columns: 20em auto;
-        column-rule: 1px dotted #ddd;
-        column-gap: 3em;
-        text-align: justify;
-        hanging-punctuation: allow-end;
-    }
-    #guide-content h1 {
-        width: 1.2em;
-        column-span: all;
-        font-size: 28pt;
-        font-weight: 200;
-        font-feature-settings: "vpal" 1;
-    }
-    #guide-content h2 {
-        font-size: 18pt;
-        text-indent: 2em;
-        font-weight: 700;
-        font-feature-settings: "vpal" 1;
-    }
-    #guide-content h3 {
-        font-size: 16pt;
-        font-weight: 700;
-        font-feature-settings: "vpal" 1;
-    }
-    #guide-content p {
-        font-size: 16pt;
-        margin-bottom: 0;
-        text-indent: 1em;
-        font-feature-settings: "vchw" 1;
-    }
-    #guide-content ul {
-        padding-inline-start: 1.5em;
-    }
-    #guide-content li {
-        font-size: 16pt;
-        margin-bottom: 0;
-        font-feature-settings: "vchw" 1;
-    }
-
-    #guide-content u {
-        /* damn, iOS Safari draws underlines on LEFT without supporting text-underline-position! */
-        text-decoration: none;
-        border-right: 2px solid black;
-    }
-
-    /* 右下コントロールパネル */
-    .right-down-control-pane {
-        display: flex;
-        position: fixed;
-        right: 10px;
-        bottom: 0;
-        /*bottom: 20px;*/
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 200;
-    }
-
-    .btn.btn-desktop {
-        display: flex;
-        position: relative;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        background-color: white;
-        box-shadow: 2px 2px 20px 0px rgba(0,0,0,0.3);
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        margin-bottom: 20px; /* instead of gap */
-        padding: 5px;
-        color: #888;
-        transition: all 0.2s;
-        font-size: 25px;
-    }
-
-    .btn-desktop:hover {
-        background-color: #888;
-        color: white;
-    }
-
-    .btn-desktop:before {
-        display: block;
-        content: attr(data-label);
-        background-color: white;
-        position: absolute;
-        box-shadow: 2px 2px 20px 0px rgba(0,0,0,0.3);
-        border-radius: 5px;
-        top: -5px;
-        right: 40px;
-        height: 60px;
-        opacity: 0;
-        writing-mode: vertical-rl;
-        color: #888;
-        font-family: 'Yu Mincho', 'YuMincho';
-        font-size: 25px;
-        transition: opacity 0.2s, right 0.2s ease-out;
-        pointer-events: none;
-    }
-    .btn-desktop:hover:before {
-        opacity: 1;
-        right: 50px;
-    }
-
-    .btn-desktop.btn-desktop-label4:before {
-        top: calc(-12.5px * 4 - 5px + 25px);
-        height: calc(25px * 4 + 10px);
-    }
-
-    .btn-desktop.btn-desktop-label5:before {
-        top: calc(-12.5px * 5 - 5px + 25px);
-        height: calc(25px * 5 + 10px);
-    }
-
-    #fullscreenBtn {
-        font-size: 20px;
-    }
-
-    .modal-body .note {
-        font-size: 14px;
-        color: #666;
-        margin: 1em 0;
-        text-align: left;
-    }
-
-    /* バックドロップ */
-    #processingBackdrop.backdrop-opening {
-        /*background-color: white;*/
-        background: fixed radial-gradient(ellipse at center,rgb(255,255,255) 0%,rgb(255,255,255) 30%,rgb(243,243,243) 60%,rgb(160,160,160) 100%);
-        opacity: 1;
-    }
-    #processingBackdrop.backdrop-opening:before {
-        position: absolute;
-        display: block;
-        content: "";
-        background-image: url("data:image/png;base64,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");
-        background-size: contain;
-        width: calc(334px / 2);
-        height: calc(690px / 2);
-        left: calc(50% - (334px / 4));
-        top: calc(50% - (690px / 4));
-    }
-
-    #processingBackdrop.backdrop-export-image:before {
-        position: absolute;
-        display: block;
-        content: "画像生成中…";
-        top: 45%;
-        width: 100%;
-        color: white;
-        font-family: 'Yu Mincho', 'YuMincho';
-        font-size: 10vh;
-        text-align: center;
-    }
-}
-
-@media print {
-
-    body {
-        background: none;
-        min-width: auto !important;
-        width: fit-content;
-        text-align: center;
-        -webkit-print-color-adjust: exact;
-    }
-
-    header,
-    .bg-desktop,
-    .bg-lighting,
-    .bg-shade,
-    .drawer,
-    .btn-desktop {
-        display: none;
-    }
-
-    .genko-paper {
-        break-inside: avoid;
-        box-shadow: none;
-        margin: 0;
-    }
-    .genko-body {
-        margin: 5mm;
-    }
-}
+$(() => new Main().setup());

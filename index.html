@@ -23,22 +23,17 @@
         <div class="bg-desktop"></div>
         <div class="bg-shade"></div>
         <div class="bg-lighting"></div>
-        <header>原稿用紙ライター <span class="tc">Ver.</span>１・２・１</header>
+        <header>
+            原稿用紙ライター <span class="tc">Ver.</span>１・２・１
+            <div id="login-info" class="login-info-header" style="float: right; font-size: 14px; font-weight: normal; margin-right: 20px;">
+                <span id="login-display-class">未ログイン</span>&nbsp;
+                <span id="login-display-name">ゲスト</span>&nbsp;
+                <button id="logoutBtn" class="btn btn-sm btn-outline-danger" style="margin-left: 10px;">ログアウト</button>
+            </div>
+        </header>
 
-        <!-- アカウントパネル (固定表示) -->
-        <div id="account-panel" style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: none; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; color: white; display: flex; align-items: center;">
-            <div id="teacher-panel" style="display: none; align-items: center;">
-                <span class="mr-2">教師モード</span>
-                <select id="student-selector" class="form-control custom-select custom-select-sm" style="width: auto;">
-                    <option value="">児童を選択...</option>
-                </select>
-                <button id="logoutBtn" class="btn btn-sm btn-outline-light ml-2">ログアウト</button>
-            </div>
-            <div id="student-panel" style="display: none; align-items: center;">
-                <span id="current-student-name" class="mr-3"></span>
-                <button id="logoutBtn-student" class="btn btn-sm btn-outline-light">ログアウト</button>
-            </div>
-        </div>
+        <!-- 教師用サイドバー -->
+        <div id="teacher-sidebar" class="d-none"></div>
         <div class="genko"></div>
 
         <!-- 設定タブ -->
@@ -47,6 +42,29 @@
             <div class="drawer-container">
                 <div class="drawer-accordion-box">
                     <div id="settings-content" class="drawer-contents">
+                    <!-- 教師用メニュー -->
+                    <div id="teacher-menu-box" class="drawer-item d-none">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <h6 class="card-title font-weight-bold mb-2">教師用メニュー</h6>
+                                <div class="form-group mb-0">
+                                    <label for="teacher-student-select" class="small mb-1">児童の選択</label>
+                                    <select id="teacher-student-select" class="form-control custom-select custom-select-sm">
+                                        <option value="">-- 児童を選択 --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 先生からのアドバイス -->
+                    <div id="teacher-comment-box" class="drawer-item d-none">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-white p-1 small font-weight-bold">先生からのアドバイス</div>
+                            <div class="card-body p-2">
+                                <p id="teacher-comment-text" class="card-text small mb-0" style="white-space: pre-wrap;"></p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="drawer-item ">
                         <div class="btn-group size-preset">
                             <button id="size-20x20" class="btn btn-outline-secondary">400字詰</button>
@@ -378,7 +396,12 @@
         </div>
 
         <!-- 右下ボタン -->
-        <div class="right-down-control-pane">
+        <div class="right-down-control-pane d-flex align-items-center">
+            <div id="complete-btn-wrapper" class="d-none mr-2">
+                <button id="completeBtn" class="btn btn-sm btn-success status-incomplete px-3 py-2">
+                    <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>
+                </button>
+            </div>
             <div id="undoBtn" class="btn btn-desktop btn-desktop-label4" data-label="取り消す"><i class="fa fa-undo"></i></div>
             <div id="redoBtn" class="btn btn-desktop btn-desktop-label4" data-label="やり直す"><i class="fa fa-undo fa-flip-horizontal"></i></div>
             <div id="fullscreenBtn" class="btn btn-desktop btn-desktop-label5" data-label="全画面表示">
@@ -453,26 +476,36 @@
         </div>
 
         <!-- ログインダイアログ -->
-        <div id="dialog-login" class="modal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+        <div id="dialog-login" class="modal fade" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
             <div class="modal-dialog modal-dialog-centered" role="document">
                 <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">ログイン</h5>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="login-id">出席番号</label>
-                            <input type="number" id="login-id" class="form-control" placeholder="例: 1 (※教師は 0)">
+                    <form id="loginForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title font-weight-bold">ログイン</h5>
                         </div>
-                        <div class="form-group">
-                            <label for="login-password">パスワード</label>
-                            <input type="password" id="login-password" class="form-control">
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="login-class-num" class="font-weight-bold">クラス</label>
+                                <select id="login-class-num" class="form-control custom-select" required>
+                                    <option value="" disabled selected>クラスを選択してください</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="login-student-select" class="font-weight-bold">出席番号</label>
+                                <select id="login-student-select" class="form-control custom-select" required disabled>
+                                    <option value="" disabled selected>先にクラスを選択してください</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="login-password" class="font-weight-bold">パスワード</label>
+                                <input type="password" id="login-password" class="form-control" placeholder="パスワードを入力してください" required>
+                            </div>
+                            <div id="login-error" class="alert alert-danger d-none" role="alert"></div>
                         </div>
-                        <p class="text-danger" id="login-error" style="display: none;"></p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" id="btn-login" class="btn btn-primary">ログイン</button>
-                    </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary btn-block">ログイン</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

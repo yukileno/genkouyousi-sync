@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>全員の作文一括印刷</title>
+        <link rel="stylesheet" href="lib/bootstrap.min.css">
+        <link rel="stylesheet" href="lib/font-awesome.min.css">
+        <link rel="stylesheet" href="css/fonts.css">
+        <link rel="stylesheet" href="css/genkoyoshi.css">
+        <link rel="stylesheet" href="css/index.css">
+        
+        <script src="lib/jquery-3.3.1.min.js"></script>
+        <script src="lib/bootstrap.bundle.min.js"></script>
+        
+        <style>
+            body {
+                background: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                color: black !important;
+            }
+            .student-print-wrapper {
+                display: block;
+            }
+            .paper-print-header {
+                position: absolute !important;
+                top: -25px !important;
+                left: 40px !important;
+                font-family: sans-serif !important;
+                font-size: 14px !important;
+                font-weight: bold !important;
+                color: #333 !important;
+                writing-mode: horizontal-tb !important;
+                white-space: nowrap !important;
+            }
+            .genko {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                width: 100% !important;
+            }
+            .genko-paper {
+                margin: 35px auto 10px auto !important;
+                box-shadow: none !important;
+                background: none !important;
+                page-break-before: always !important;
+                break-before: page !important;
+                position: relative !important;
+                color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+            }
+            .genko-cell, .genko-line-header {
+                color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+            }
+            .student-print-wrapper:first-of-type .genko-paper:first-of-type {
+                page-break-before: avoid !important;
+                break-before: avoid !important;
+                margin-top: 25px !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="print-container"></div>
+        
+        <script type="module">
+            import { GenkoYoshi } from "./js/genkoyoshi.js";
+            
+            async function startPrint() {
+                // 親ウィンドウからデータを取得
+                if (!window.opener || !window.opener.printData) {
+                    alert("印刷データが見つかりませんでした。");
+                    window.close();
+                    return;
+                }
+                
+                const writings = window.opener.printData;
+                const $container = $("#print-container");
+                
+                for (let i = 0; i < writings.length; i++) {
+                    const w = writings[i];
+                    
+                    const $wrapper = $("<div>").addClass("student-print-wrapper").appendTo($container);
+                    const $g = $("<div>").addClass("genko").appendTo($wrapper);
+                    
+                    let cols = 20, rows = 20;
+                    let parsedSettings = null;
+                    if (w.settings) {
+                        try {
+                            parsedSettings = JSON.parse(w.settings);
+                            if (parsedSettings.genkoSettings) {
+                                cols = parsedSettings.genkoSettings.colSize || 20;
+                                rows = parsedSettings.genkoSettings.rowSize || 20;
+                            }
+                        } catch (err) {
+                            console.error("設定パースエラー:", err);
+                        }
+                    }
+                    
+                    // 印刷ウィンドウ自身のドキュメント内で GenkoYoshi を初期化
+                    const gy = new GenkoYoshi($g, rows, cols);
+                    await gy.init();
+                    
+                    gy.setText(w.text || "");
+                    
+                    // スタイル適用
+                    if (parsedSettings) {
+                        const gs = parsedSettings.genkoSettings || {};
+                        const as = parsedSettings.appSettings || {};
+                        if (gs.featuringColor) {
+                            $g.find(".genko-cell").css("border-color", gs.featuringColor);
+                            $g.find(".genko-line-header").css("color", gs.featuringColor);
+                            gy.setColor(gs.featuringColor);
+                        }
+                        if (gs.featuringFont) {
+                            $g.find(".genko-cell").addClass("font-" + gs.featuringFont);
+                            gy.setFont(gs.featuringFont);
+                        }
+                        if (as.wallpaper) {
+                            $g.find(".genko-paper").addClass("skin-" + as.wallpaper);
+                        }
+                    }
+                    
+                    // レンダリングのためのウェイト
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                    
+                    // 個別ヘッダーの埋め込み
+                    const $papers = $g.find(".genko-paper");
+                    $papers.each(function(p) {
+                        const pageNumText = (p + 1) + "/" + $papers.length;
+                        const headerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + pageNumText;
+                        
+                        $("<div>")
+                            .addClass("paper-print-header")
+                            .text(headerText)
+                            .appendTo($(this));
+                    });
+                }
+                
+                // すべて完了したら印刷ダイアログを開く
+                setTimeout(() => {
+                    window.focus();
+                    window.print();
+                }, 1000);
+            }
+            
+            $(() => {
+                startPrint();
+            });
+        </script>
+    </body>
+</html>
