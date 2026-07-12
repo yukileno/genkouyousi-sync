@@ -4,3 +4,4 @@
 Thumbs.db
 .DS_Store
 *.log
+backup_before_reset/

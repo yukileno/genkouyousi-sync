@@ -184,55 +184,6 @@ export class Settings {
         return this.params;
     }
 
-    apply(genkoSettings, appSettings) {
-        if (!genkoSettings) return;
-
-        // genkoオブジェクトに設定を適用
-        this.genko.setOptions(genkoSettings);
-        
-        // paramsを同期
-        this.params.rows = this.genko.rowSize;
-        this.params.cols = this.genko.colSize;
-        this.params.cellOptions = this.genko.cellOptions;
-        this.params.selectionStyle = this.genko.selectionStyle;
-        if (appSettings) {
-            $.extend(this.params, appSettings);
-        }
-
-        // UI要素の表示を更新
-        this.$rows.val(this.params.rows);
-        this.$cols.val(this.params.cols);
-        this.$lightColorRange.val(this.params.lightColor);
-        
-        this.$cellOptionToggles.each((idx, e) => {
-            $(e).prop("checked", this.genko.cellOptions[$(e).attr("id")]);
-        });
-
-        // 罫線色のアクティブ状態更新
-        this.$colorPalette.find(".btn").each((i, btn) => {
-            $(btn).toggleClass("active", $(btn).data("color") == this.genko.featuringColor);
-        });
-
-        this.$wallpaper.val(this.params.wallpaper);
-        this.$body.find("#font").val(this.genko.featuringFont);
-        this.$body.find("#fontRoman").val(this.genko.featuringFontRoman);
-
-        this.main.setLightColor(this.params.lightColor);
-        this.main.setWallpaper(this.params.wallpaper);
-
-        this.$selectionStyleType.val(this.genko.selectionStyle.type);
-        this.$selectionStyleColors.find(".btn").each((i, btn) => {
-            $(btn).toggleClass("active", $(btn).data("color") === this.genko.selectionStyle.color);
-        });
-
-        const isDefault = this.genko.selectionStyle.type === "default";
-        this.$selectionStyleColors.find("button")
-            .attr("inert", isDefault ? "inert" : null)
-            .toggleClass("disabled", isDefault);
-
-        this.main.setPrintPageSize(this.params.rows, this.params.cols);
-    }
-
 }
 
 // For old Safari, static class fields define outside the class
