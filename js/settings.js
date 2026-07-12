@@ -210,6 +210,21 @@ export class Settings {
         if (this.genko.selectionStyle) {
             this.genko.setSelectionStyle(this.genko.selectionStyle);
         }
+
+        // 文字組みオプション（禁則、ぶら下がり、縦中横等）を一括適用
+        if (genkoSettings.cellOptions) {
+            this.genko.cellOptions = $.extend(true, {}, this.genko.cellOptions, genkoSettings.cellOptions);
+            this.genko.updateText();
+            this.genko.setupContainer();
+            if (this.genko.inputMgr) {
+                this.genko.inputMgr.applyCellOptions(this.genko.cellOptions);
+            }
+        }
+
+        // ます数を強制適用して再描画
+        if (genkoSettings.rowSize && genkoSettings.colSize) {
+            this.genko.setSize(genkoSettings.rowSize, genkoSettings.colSize);
+        }
         
         // paramsを同期
         this.params.rows = this.genko.rowSize;
