@@ -447,6 +447,10 @@ class Main {
                 $("#controlPane, #sharePane").removeClass("d-none"); // 設定・共有タブを表示
                 // 設定変更を許可する
                 $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
+                
+                // 教師自身の保存されている設定データをロードして適用
+                await this.loadTeacherSettingsFromServer();
+
                 // 先生用ワークスペースの初期化（サイドバーを構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
@@ -516,7 +520,15 @@ class Main {
                     this.$loginPassword.val("");
 
                     if (studentId === "99" || studentId === 99) {
-                        // 先生ログイン時は特に追加の読み込みはなし
+                        // 先生ログイン時も、設定データがあれば読み込んで適用する
+                        if (res.data && res.data.settings) {
+                            try {
+                                const parsedSettings = JSON.parse(res.data.settings);
+                                this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                            } catch (err) {
+                                console.error("設定パースエラー:", err);
+                            }
+                        }
                     } else {
                         // 児童ログイン時は通常の個別読み込み
                         if (res.data) {
@@ -917,6 +929,36 @@ class Main {
             alert("作文データの取得中にエラーが発生しました。");
         } finally {
             this.endProcessing();
+        }
+    }
+
+    async loadTeacherSettingsFromServer() {
+        const classNum = window.localStorage.getItem("genko_classNumber");
+        const studentId = window.localStorage.getItem("genko_studentId");
+        
+        if (!classNum || (studentId !== "99" && studentId !== 99)) return;
+        
+        try {
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: JSON.stringify({
+                    action: "load",
+                    classNumber: classNum,
+                    studentId: studentId
+                })
+            });
+            const res = await response.json();
+            if (res.status === "success" && res.data && res.data.settings) {
+                const parsedSettings = JSON.parse(res.data.settings);
+                this.settings.apply(parsedSettings.genkoSettings, parsedSettings.appSettings);
+                console.log("教師の設定データをスプレッドシートから読み込み、適用しました");
+            }
+        } catch (err) {
+            console.error("教師設定ロードエラー:", err);
         }
     }
 
