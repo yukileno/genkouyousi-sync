@@ -29,8 +29,6 @@ class Main {
         this.$loginPassword = $("#login-password"); // パスワードフィールド
         this.$teacherCommentBox = $("#teacher-comment-box");
         this.$teacherCommentText = $("#teacher-comment-text");
-        this.$teacherMenuBox = $("#teacher-menu-box");
-        this.$teacherStudentSelect = $("#teacher-student-select").change(this.onTeacherStudentSelected.bind(this));
         this.$teacherSidebar = $("#teacher-sidebar"); // 教師用児童切り替えサイドバー
 
         // 児童用コントロールパネルのバインド
@@ -445,15 +443,17 @@ class Main {
             
             // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
             if (studentId === "99" || studentId === 99) {
-                this.$teacherMenuBox.removeClass("d-none");
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
+                // 設定変更を許可する
+                $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
                 // 先生用ワークスペースの初期化（サイドバーを構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
-                this.$teacherMenuBox.addClass("d-none");
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
+                // 児童は設定を変更できないように一部コントロールを無効化
+                $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", true);
                 this.updateSaveStatus("saved");
             }
             
@@ -595,8 +595,9 @@ class Main {
             this.$loginPassword.val("");
             this.$teacherCommentBox.addClass("d-none");
             this.$teacherCommentText.text("");
-            this.$teacherMenuBox.addClass("d-none");
             this.$studentControlPanel.addClass("d-none");
+            // 設定無効化を解除（ゲスト状態なので一応有効に）
+            $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
 
             this.$teacherStudentSelect.empty().append(
                 $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
@@ -627,13 +628,10 @@ class Main {
             const studentId = window.localStorage.getItem("genko_studentId");
             const studentName = window.localStorage.getItem("genko_studentName");
 
-            // 教師用アカウントは自分のデータを上書き保存しないように除外
-            if (studentId === "99" || studentId === 99) {
-                return;
-            }
+            const isTeacher = (studentId === "99" || studentId === 99);
 
             if (classNum && studentId && studentName) {
-                const text = this.genko.getText();
+                const text = isTeacher ? "" : this.genko.getText();
                 const charCount = text.length;
                 const settingsData = {
                     genkoSettings: {
@@ -645,10 +643,13 @@ class Main {
                     appSettings: {
                         wallpaper: this.settings.wallpaper
                     },
-                    isCompleted: this.isCompletedStatus // できた！ステータスをsettingsの一部として保存
+                    isCompleted: isTeacher ? false : this.isCompletedStatus
                 };
 
-                this.updateSaveStatus("saving");
+                if (!isTeacher) {
+                    this.updateSaveStatus("saving");
+                }
+
                 try {
                     const response = await fetch(GAS_URL, {
                         method: "POST",
@@ -668,15 +669,21 @@ class Main {
                     });
                     const res = await response.json();
                     if (res.status === "success") {
-                        console.log("スプレッドシートへの自動保存に成功しました");
-                        this.updateSaveStatus("saved");
+                        console.log("スプレッドシートへの保存に成功しました");
+                        if (!isTeacher) {
+                            this.updateSaveStatus("saved");
+                        }
                     } else {
-                        console.warn("自動保存失敗:", res.message);
-                        this.updateSaveStatus("error");
+                        console.warn("保存失敗:", res.message);
+                        if (!isTeacher) {
+                            this.updateSaveStatus("error");
+                        }
                     }
                 } catch (err) {
-                    console.error("自動保存エラー:", err);
-                    this.updateSaveStatus("error");
+                    console.error("保存エラー:", err);
+                    if (!isTeacher) {
+                        this.updateSaveStatus("error");
+                    }
                 }
             }
         };

@@ -52,6 +52,15 @@ function doPost(e) {
       var data = sheet.getDataRange().getValues();
       var result = null;
       
+      // クラスの教師(99番)の設定データを取得
+      var teacherSettings = null;
+      for (var j = 1; j < data.length; j++) {
+        if (normalizeClass(data[j][0]) == classNumber && (data[j][1] == 99 || data[j][1] == "99")) {
+          teacherSettings = data[j][7] || null;
+          break;
+        }
+      }
+      
       for (var i = 1; i < data.length; i++) {
         if (normalizeClass(data[i][0]) == classNumber && data[i][1] == studentId) {
           result = {
@@ -60,7 +69,7 @@ function doPost(e) {
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: data[i][7] || null
+            settings: teacherSettings // 教師の設定を優先適用
           };
           break;
         }
@@ -123,14 +132,24 @@ function doPost(e) {
           var dbPassword = data[i][3] ? data[i][3].toString().trim() : "";
           if (dbPassword === password) {
             authSuccess = true;
-            // ログイン成功と同時に、同じ行 of のG列(本文)とH列(設定)からデータを取得してロードする
+            
+            // クラスの教師(99番)の設定データを取得
+            var teacherSettings = null;
+            for (var j = 1; j < data.length; j++) {
+              if (normalizeClass(data[j][0]) == classNumber && (data[j][1] == 99 || data[j][1] == "99")) {
+                teacherSettings = data[j][7] || null;
+                break;
+              }
+            }
+
+            // ログイン成功と同時に、同じ行 of のG列(本文)からデータを取得してロードする
             savedData = {
               classNumber: data[i][0],
               studentId: data[i][1],
               studentName: studentName,
               charCount: data[i][5] || 0,
               text: data[i][6] || "",
-              settings: data[i][7] || null
+              settings: teacherSettings // 教師の設定を優先適用
             };
           }
           break;
@@ -179,6 +198,15 @@ function doPost(e) {
       var data = sheet.getDataRange().getValues();
       var result = null;
       
+      // クラスの教師(99番)の設定データを取得
+      var teacherSettings = null;
+      for (var j = 1; j < data.length; j++) {
+        if (normalizeClass(data[j][0]) == classNumber && (data[j][1] == 99 || data[j][1] == "99")) {
+          teacherSettings = data[j][7] || null;
+          break;
+        }
+      }
+
       for (var i = 1; i < data.length; i++) {
         if (normalizeClass(data[i][0]) == classNumber && data[i][1] == studentId) {
           result = {
@@ -187,7 +215,7 @@ function doPost(e) {
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: data[i][7] || null
+            settings: teacherSettings // 教師の設定を優先適用
           };
           break;
         }

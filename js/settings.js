@@ -97,15 +97,18 @@ export class Settings {
         this.$rows.val(rows);
         this.$cols.val(cols);
         this.main.setPrintPageSize(rows, cols);
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onRowsChanged(e) {
         let rows = $(e.target).val();
+        let cols = this.params.cols;
         rows = Math.min(100, Math.max(3, rows));
         $(e.target).val(rows);
         this.params.rows = rows;
         this.genko.setSize(this.params.rows, this.params.cols);
         this.main.setPrintPageSize(rows, cols);
+        this.main.triggerAutoSaveToServer(true);
     }
     onColsChanged(e) {
         let cols = $(e.target).val();
@@ -113,7 +116,8 @@ export class Settings {
         $(e.target).val(cols);
         this.params.cols = cols;
         this.genko.setSize(this.params.rows, this.params.cols);
-        this.main.setPrintPageSize(rows, cols);
+        this.main.setPrintPageSize(this.params.rows, cols);
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onCellOptionToggled(e) {
@@ -121,6 +125,7 @@ export class Settings {
         let name = $(e.target).attr("id");
         this.params.cellOptions[name] = checked;
         this.genko.setCellOption(name, checked);
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onColorChanged(e) {
@@ -129,26 +134,31 @@ export class Settings {
         this.$colorPalette.find(".btn").each((i, btn) => {
             $(btn).toggleClass("active", $(btn).data("color") == color);
         });
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onFontChanged(e) {
         this.genko.setFont($(e.target).val());
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onFontRomanChanged(e) {
         this.genko.setFontRoman($(e.target).val());
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onWallpaperChanged(e) {
         let nextVal = $(e.target).val();
         this.main.setWallpaper(nextVal);
         this.params.wallpaper = nextVal;
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onLightColorChanged(e) {
         let nextVal = $(e.target).val();
         this.main.setLightColor(nextVal);
         this.params.lightColor = nextVal;
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onSelectionStyleChanged(e) {
@@ -160,6 +170,7 @@ export class Settings {
         this.$selectionStyleColors.find("button")
             .attr("inert", isDefault ? "inert" : null)
             .toggleClass("disabled", isDefault);
+        this.main.triggerAutoSaveToServer(true);
     }
 
     onSelectionColorChanged(e) {
@@ -167,6 +178,7 @@ export class Settings {
         const type = this.$selectionStyleType.val();
         const color = $target.data("color");
         this.genko.setSelectionStyle({type, color});
+        this.main.triggerAutoSaveToServer(true);
 
         $("#selectionStyleColors").find(".btn").each((i, btn) => {
             $(btn).toggleClass("active", $(btn).data("color") === color);
