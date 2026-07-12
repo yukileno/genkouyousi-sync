@@ -447,16 +447,14 @@ class Main {
             // 教師用メニューの表示制御 (出席番号「0」を教師用とする)
             if (studentId === "0" || studentId === 0) {
                 this.$teacherMenuBox.removeClass("d-none");
-                this.$completeBtnWrapper.addClass("d-none"); // 先生用画面ではできた！ボタンは非表示
-                this.$saveStatusBtnWrapper.addClass("d-none"); // 先生用画面では保存ステータスは非表示
+                this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
                 // 先生用ワークスペースの初期化（サイドバーの構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
                 this.$teacherMenuBox.addClass("d-none");
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
-                this.$completeBtnWrapper.removeClass("d-none"); // 児童用画面ではできた！ボタンを表示
-                this.$saveStatusBtnWrapper.removeClass("d-none"); // 児童用画面では保存ステータスを表示
+                this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
                 this.updateSaveStatus("saved");
             }
             
@@ -467,8 +465,7 @@ class Main {
             this.$teacherMenuBox.addClass("d-none");
             this.$teacherSidebar.addClass("d-none");
             $("body").removeClass("has-teacher-sidebar");
-            this.$completeBtnWrapper.addClass("d-none"); // 未ログイン時は非表示
-            this.$saveStatusBtnWrapper.addClass("d-none"); // 未ログイン時は非表示
+            this.$studentControlPanel.addClass("d-none"); // 未ログイン時は非表示
             this.$dialogLogin.modal("show");
             // 未ログインの場合、サーバーから児童名簿を読み込む
             await this.loadStudentRoster();
@@ -600,8 +597,7 @@ class Main {
             this.$teacherCommentBox.addClass("d-none");
             this.$teacherCommentText.text("");
             this.$teacherMenuBox.addClass("d-none");
-            this.$completeBtnWrapper.addClass("d-none");
-            this.$saveStatusBtnWrapper.addClass("d-none");
+            this.$studentControlPanel.addClass("d-none");
 
             this.$teacherStudentSelect.empty().append(
                 $("<option>").val("").text("-- 児童を選択 --").prop("selected", true)
@@ -953,14 +949,14 @@ class Main {
     updateCompleteButtonUi() {
         if (this.isCompletedStatus) {
             this.$completeBtn
-                .removeClass("status-incomplete")
-                .addClass("status-complete")
+                .removeClass("btn-secondary")
+                .addClass("btn-success")
                 .html('<i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>できた！(完了)</strong>');
         } else {
             this.$completeBtn
-                .removeClass("status-complete")
-                .addClass("status-incomplete")
-                .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！</strong>');
+                .removeClass("btn-success")
+                .addClass("btn-secondary")
+                .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>できた！(まだだよ)</strong>');
         }
     }
 
