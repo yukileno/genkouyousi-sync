@@ -443,11 +443,11 @@ class Main {
             $("#login-display-class").text(classNum + "組　" + studentId + "番");
             $("#login-display-name").text(studentName);
             
-            // 教師用メニューの表示制御 (出席番号「0」を教師用とする)
-            if (studentId === "0" || studentId === 0) {
+            // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
+            if (studentId === "99" || studentId === 99) {
                 this.$teacherMenuBox.removeClass("d-none");
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
-                // 先生用ワークスペースの初期化（サイドバーの構築）
+                // 先生用ワークスペースの初期化（サイドバーを構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
                 this.$teacherMenuBox.addClass("d-none");
@@ -513,7 +513,7 @@ class Main {
                     // パスワード入力欄をクリア
                     this.$loginPassword.val("");
 
-                    if (studentId === "0" || studentId === 0) {
+                    if (studentId === "99" || studentId === 99) {
                         // 先生ログイン時は特に追加の読み込みはなし
                     } else {
                         // 児童ログイン時は通常の個別読み込み
@@ -628,7 +628,7 @@ class Main {
             const studentName = window.localStorage.getItem("genko_studentName");
 
             // 教師用アカウントは自分のデータを上書き保存しないように除外
-            if (studentId === "0" || studentId === 0) {
+            if (studentId === "99" || studentId === 99) {
                 return;
             }
 
@@ -788,7 +788,7 @@ class Main {
             // クラス名簿を取得
             const students = this.studentRoster[classNum] || [];
             students.forEach(s => {
-                if (s.id !== 0 && s.id !== "0") {
+                if (s.id !== 99 && s.id !== "99") {
                     const w = writings.find(item => item.studentId == s.id);
                     const hasWriting = (w && w.text && w.text.trim() !== "");
                     const studentName = (w && w.studentName) ? w.studentName : `${s.id}番`;
@@ -802,23 +802,23 @@ class Main {
                         } catch(e){}
                     }
 
-                    // 1. 左端の固定サイドバー用丸ボタンの生成
+                    // 1. 左端の固定サイドバー用リストボタンの生成
                     const $btn = $("<button>")
-                        .addClass("student-btn")
+                        .addClass("student-list-item")
                         .attr("data-student-id", s.id)
-                        .attr("title", `${s.id}番 ${studentName}`)
-                        .text(s.id)
-                        .attr("data-toggle", "tooltip")
-                        .attr("data-placement", "right")
-                        .click(() => this.selectTeacherStudent(s.id))
-                        .appendTo(this.$teacherSidebar);
-
-                    if (hasWriting) {
-                        $btn.addClass("has-writing");
-                    }
+                        .click(() => this.selectTeacherStudent(s.id));
+                    
+                    const $infoSpan = $("<span>").text(`${s.id}番 ${studentName}`);
+                    const $badge = $("<span>").addClass("student-status-badge");
                     if (isCompleted) {
-                        $btn.addClass("completed"); // 右上に金色のチェックマークバッジを表示
+                        $badge.addClass("completed").html('<i class="fa fa-check"></i> できた！');
+                    } else if (hasWriting) {
+                        $badge.addClass("writing").text("書きかけ");
+                    } else {
+                        $badge.addClass("empty").text("未入力");
                     }
+
+                    $btn.append($infoSpan).append($badge).appendTo(this.$teacherSidebar);
 
                     // 2. セレクトボックス（予備）の充填
                     let statusSuffix = "";
@@ -835,9 +835,6 @@ class Main {
                 }
             });
 
-            // ツールチップを有効化
-            this.$teacherSidebar.find('[data-toggle="tooltip"]').tooltip();
-
         } catch (err) {
             console.error("先生用サイドバー初期化エラー:", err);
         } finally {
@@ -852,9 +849,9 @@ class Main {
 
     async selectTeacherStudent(studentId) {
         // サイドバーボタンのアクティブ表示切替
-        this.$teacherSidebar.find(".student-btn").removeClass("active");
+        this.$teacherSidebar.find(".student-list-item").removeClass("active");
         if (studentId) {
-            this.$teacherSidebar.find(`.student-btn[data-student-id="${studentId}"]`).addClass("active");
+            this.$teacherSidebar.find(`.student-list-item[data-student-id="${studentId}"]`).addClass("active");
         }
 
         // ドロワー内のセレクトボックスも同期
