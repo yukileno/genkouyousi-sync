@@ -1,4 +1,4 @@
-﻿import {GenkoYoshi} from "./genkoyoshi.js";
+import {GenkoYoshi} from "./genkoyoshi.js";
 import {Settings} from "./settings.js";
 import {SaveHandler} from "./savehandler.js";
 
@@ -536,6 +536,7 @@ class Main {
 
                             if (data.text) {
                                 this.genko.setText(data.text);
+                                this.genko.refresh();
                             }
                             
                             // 先生からのアドバイスを表示する（一時的に非表示設定）
@@ -891,6 +892,7 @@ class Main {
 
                 // 作文本文の反映
                 this.genko.setText(w.text || "");
+                this.genko.refresh();
                 
                 // レンダリング完了後、用紙上部に印刷用ヘッダーを埋め込み
                 setTimeout(() => {
