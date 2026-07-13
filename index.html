@@ -409,7 +409,7 @@
         </div>
 
         <style>
-            /* 縦書きボタンの共通スタイル */
+            /* 縦書きボタン of の共通スタイル */
             .vertical-btn {
                 writing-mode: vertical-rl;
                 text-orientation: upright;
@@ -417,9 +417,9 @@
                 width: 48px !important;
                 height: 180px !important;
                 display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
+                flex-direction: row !important; /* 縦書きモード（vertical-rl）における「上から下」方向の配置 */
+                align-items: center !important; /* 物理的な水平方向の中央揃え */
+                justify-content: center !important; /* 物理的な垂直方向の中央揃え */
                 border-radius: 24px !important;
                 font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;
             }
