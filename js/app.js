@@ -454,6 +454,7 @@ class Main {
             
             // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
             if (studentId === "99" || studentId === 99) {
+                this.genko.setReadOnly(true); // 教師画面では児童作文の誤書き換えを防ぐためエディタを読み取り専用に
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
                 $("#controlPane, #sharePane").removeClass("d-none"); // 設定・共有タブを表示
                 // 設定変更を許可する
@@ -465,6 +466,7 @@ class Main {
                 // 先生用ワークスペースの初期化（サイドバーを構築）
                 await this.initTeacherWorkspace(classNum);
             } else {
+                this.genko.setReadOnly(false); // 児童画面では書き込み可能に
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
@@ -476,6 +478,7 @@ class Main {
             
             this.$dialogLogin.modal("hide");
         } else {
+            this.genko.setReadOnly(false); // ゲスト状態でもお試し入力できるように書き込み可能に
             $("#login-display-class").text("未ログイン");
             $("#login-display-name").text("ゲスト");
             this.$teacherSidebar.addClass("d-none");

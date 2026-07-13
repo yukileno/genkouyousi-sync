@@ -547,6 +547,11 @@ export class GenkoYoshi {
         this.undoMgr.redo();
     }
 
+    setReadOnly(bool) {
+        if (this.inputMgr) {
+            this.inputMgr.setReadOnly(bool);
+        }
+    }
 
     clear() {
         this.text.setText("");
@@ -949,7 +954,16 @@ class InputManager {
         return this;
     }
 
+    setReadOnly(bool) {
+        this.readOnly = !!bool;
+        this.$imeFld.attr("contentEditable", bool ? "false" : "true");
+        if (bool) {
+            this.$caret.hide();
+        }
+    }
+
     focus() {
+        if (this.readOnly) return;
         this.$caret.show();
         this.$imeFld.focus();
     }
