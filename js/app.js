@@ -110,10 +110,10 @@ class Main {
             this.setPrintPageSize(this.genko.rowSize, this.genko.colSize);
             $('[data-toggle="tooltip"]').tooltip();
             
-            // 一人一台端末向けに起動時のクリア処理を廃止し、ログイン状態を維持します
-            // window.localStorage.removeItem("genko_classNumber");
-            // window.localStorage.removeItem("genko_studentId");
-            // window.localStorage.removeItem("genko_studentName");
+            // 起動時は毎回ログインを求めるため、ログイン完了状態を示す氏名のみクリアする
+            // パスワードもオートフィルしないためクリアする（クラスと出席番号は残します）
+            window.localStorage.removeItem("genko_studentName");
+            window.localStorage.removeItem("genko_password");
 
             // ログイン状態を検証
             await this.checkLoginStatus(); 
@@ -524,7 +524,7 @@ class Main {
                     window.localStorage.setItem("genko_classNumber", classNum);
                     window.localStorage.setItem("genko_studentId", studentId);
                     window.localStorage.setItem("genko_studentName", studentName);
-                    window.localStorage.setItem("genko_password", password); // 次回オートフィルのためパスワードも保存
+                    // パスワードはオートフィルせず毎回手入力させるため、保存しないように変更しました
                     $("#login-error").addClass("d-none");
                     await this.checkLoginStatus();
 
@@ -761,7 +761,6 @@ class Main {
                 // 一人一台端末向け：前回のログイン情報をオートフィル
                 const lastClass = window.localStorage.getItem("genko_classNumber");
                 const lastStudent = window.localStorage.getItem("genko_studentId");
-                const lastPassword = window.localStorage.getItem("genko_password");
 
                 if (lastClass && this.studentRoster[lastClass]) {
                     this.$loginClassNum.val(lastClass);
@@ -771,9 +770,7 @@ class Main {
                         this.$loginStudentSelect.val(lastStudent);
                     }
                 }
-                if (lastPassword) {
-                    this.$loginPassword.val(lastPassword);
-                }
+
 
                 $("#login-error").addClass("d-none");
             } else {
