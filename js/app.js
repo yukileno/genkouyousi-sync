@@ -110,10 +110,10 @@ class Main {
             this.setPrintPageSize(this.genko.rowSize, this.genko.colSize);
             $('[data-toggle="tooltip"]').tooltip();
             
-            // 起動時は共有PCでの安全のため、常にログイン情報をクリアして認証させる
-            window.localStorage.removeItem("genko_classNumber");
-            window.localStorage.removeItem("genko_studentId");
-            window.localStorage.removeItem("genko_studentName");
+            // 一人一台端末向けに起動時のクリア処理を廃止し、ログイン状態を維持します
+            // window.localStorage.removeItem("genko_classNumber");
+            // window.localStorage.removeItem("genko_studentId");
+            // window.localStorage.removeItem("genko_studentName");
 
             // ログイン状態を検証
             await this.checkLoginStatus(); 
@@ -524,6 +524,7 @@ class Main {
                     window.localStorage.setItem("genko_classNumber", classNum);
                     window.localStorage.setItem("genko_studentId", studentId);
                     window.localStorage.setItem("genko_studentName", studentName);
+                    window.localStorage.setItem("genko_password", password); // 次回オートフィルのためパスワードも保存
                     $("#login-error").addClass("d-none");
                     await this.checkLoginStatus();
 
@@ -615,6 +616,7 @@ class Main {
             window.localStorage.removeItem("genko_classNumber");
             window.localStorage.removeItem("genko_studentId");
             window.localStorage.removeItem("genko_studentName");
+            window.localStorage.removeItem("genko_password"); // パスワードもクリア
             this.$loginClassNum.val("");
             this.$loginStudentSelect.val("").prop("disabled", true);
             this.$loginPassword.val("");
@@ -755,6 +757,24 @@ class Main {
                 classes.forEach(c => {
                     this.$loginClassNum.append($("<option>").val(c).text(c));
                 });
+
+                // 一人一台端末向け：前回のログイン情報をオートフィル
+                const lastClass = window.localStorage.getItem("genko_classNumber");
+                const lastStudent = window.localStorage.getItem("genko_studentId");
+                const lastPassword = window.localStorage.getItem("genko_password");
+
+                if (lastClass && this.studentRoster[lastClass]) {
+                    this.$loginClassNum.val(lastClass);
+                    this.onClassNumChanged(); // 出席番号の選択肢を生成して有効化
+                    
+                    if (lastStudent) {
+                        this.$loginStudentSelect.val(lastStudent);
+                    }
+                }
+                if (lastPassword) {
+                    this.$loginPassword.val(lastPassword);
+                }
+
                 $("#login-error").addClass("d-none");
             } else {
                 $("#login-error").text("名簿データの取得に失敗しました。").removeClass("d-none");
