@@ -394,21 +394,39 @@
             <div id="printBtn" class="btn btn-desktop" data-label="印刷"><i class="fa fa-print"></i></div>
         </div>
 
-        <!-- 児童用コントロールパネル (右下に縦並びで浮かせる) -->
-        <div id="student-control-panel" class="d-none" style="position: fixed; right: 80px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+        <!-- 児童用コントロールパネル (右上に縦書き・縦並びで浮かせる) -->
+        <div id="student-control-panel" class="d-none" style="position: fixed; right: 30px; top: 80px; z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 15px;">
             <div id="save-status-btn-wrapper">
-                <button id="saveStatusBtn" class="btn btn-outline-success shadow-lg px-3 py-2" style="border-radius: 20px; width: 150px; background-color: white; font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;">
-                    <i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>保存済み</strong>
+                <button id="saveStatusBtn" class="btn btn-outline-success shadow-lg vertical-btn" style="background-color: white;">
+                    <i class="fa fa-check-circle fa-lg"></i><strong>保存済み</strong>
                 </button>
             </div>
             <div id="complete-btn-wrapper">
-                <button id="completeBtn" class="btn btn-secondary shadow-lg px-3 py-2" style="border-radius: 20px; width: 150px; font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;">
-                    <i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>まだだよ</strong>
+                <button id="completeBtn" class="btn btn-secondary shadow-lg vertical-btn">
+                    <i class="fa fa-smile-o fa-lg"></i><strong>まだだよ</strong>
                 </button>
             </div>
         </div>
 
         <style>
+            /* 縦書きボタンの共通スタイル */
+            .vertical-btn {
+                writing-mode: vertical-rl;
+                text-orientation: upright;
+                padding: 15px 8px !important;
+                width: 48px !important;
+                height: 180px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 24px !important;
+                font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;
+            }
+            .vertical-btn i {
+                margin-bottom: 8px !important;
+                margin-right: 0 !important;
+            }
             /* ホバー時の文字消え対策（背景色と文字色が同化する問題の修正） */
             #saveStatusBtn.btn-outline-success:hover {
                 background-color: #28a745 !important;

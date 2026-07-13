@@ -990,12 +990,12 @@ class Main {
             this.$completeBtn
                 .removeClass("btn-secondary")
                 .addClass("btn-success")
-                .html('<i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>できた！(完了)</strong>');
+                .html('<i class="fa fa-check-circle fa-lg"></i><strong>できた！</strong>');
         } else {
             this.$completeBtn
                 .removeClass("btn-success")
                 .addClass("btn-secondary")
-                .html('<i class="fa fa-smile-o fa-lg mr-1"></i>&nbsp;<strong>まだだよ</strong>');
+                .html('<i class="fa fa-smile-o fa-lg"></i><strong>まだだよ</strong>');
         }
     }
 
@@ -1012,25 +1012,25 @@ class Main {
             $btn.removeClass("btn-primary btn-warning btn-danger")
                 .addClass("btn-outline-success")
                 .css("background-color", "white")
-                .html('<i class="fa fa-check-circle fa-lg mr-1"></i>&nbsp;<strong>保存済み</strong>');
+                .html('<i class="fa fa-check-circle fa-lg"></i><strong>保存済み</strong>');
             $btn.prop("disabled", false);
         } else if (status === "dirty") {
             $btn.removeClass("btn-outline-success btn-warning btn-danger")
                 .addClass("btn-primary")
                 .css("background-color", "")
-                .html('<i class="fa fa-cloud-upload fa-lg mr-1"></i>&nbsp;<strong>保存する</strong>');
+                .html('<i class="fa fa-cloud-upload fa-lg"></i><strong>保存する</strong>');
             $btn.prop("disabled", false);
         } else if (status === "saving") {
             $btn.removeClass("btn-outline-success btn-primary btn-danger")
                 .addClass("btn-warning")
                 .css("background-color", "")
-                .html('<i class="fa fa-spinner fa-spin fa-lg mr-1"></i>&nbsp;<strong>保存中...</strong>');
+                .html('<i class="fa fa-spinner fa-spin fa-lg"></i><strong>保存中...</strong>');
             $btn.prop("disabled", true);
         } else if (status === "error") {
             $btn.removeClass("btn-outline-success btn-primary btn-warning")
                 .addClass("btn-danger")
                 .css("background-color", "")
-                .html('<i class="fa fa-exclamation-triangle fa-lg mr-1"></i>&nbsp;<strong>保存失敗 (再試行)</strong>');
+                .html('<i class="fa fa-exclamation-triangle fa-lg"></i><strong>保存失敗</strong>');
             $btn.prop("disabled", false);
         }
     }
