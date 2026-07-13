@@ -11,15 +11,6 @@ function doPost(e) {
     var params = JSON.parse(e.postData.contents);
     var action = params.action || "save";
     
-    // 名簿シート（またはアクティブな最初のシート）を取得します
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("名簿") 
-                || SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    
-    // もしシートが完全に空の場合は、初期ヘッダーを設定する（念のため）
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
-    }
-    
     if (action === "save") {
       var classNumber = normalizeClass(params.classNumber);
       var studentId = params.studentId;
@@ -29,6 +20,7 @@ function doPost(e) {
       var isCompleted = (params.isCompleted === true || params.isCompleted === "true");
       var timestamp = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy/MM/dd HH:mm");
       
+      var sheet = getTargetSheet(classNumber);
       var data = sheet.getDataRange().getValues();
       var foundRow = -1;
       
@@ -67,6 +59,7 @@ function doPost(e) {
       var classNumber = normalizeClass(params.classNumber);
       var studentId = params.studentId;
       
+      var sheet = getTargetSheet(classNumber);
       var data = sheet.getDataRange().getValues();
       var result = null;
       
@@ -116,25 +109,38 @@ function doPost(e) {
       }
       
     } else if (action === "get_students") {
-      var data = sheet.getDataRange().getValues();
+      var masterSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      var settingsSheet = masterSpreadsheet.getSheetByName("クラス設定");
       var students = {};
+      var sheetsToProcess = [];
       
-      // 1行目はヘッダー [クラス, 出席番号, 氏名, パスワード, ...]
-      for (var i = 1; i < data.length; i++) {
-        var classNum = normalizeClass(data[i][0]);
-        var studentId = data[i][1] ? parseInt(data[i][1]) : null;
-        
-        if (!classNum || !studentId) continue;
-        
-        if (!students[classNum]) {
-          students[classNum] = [];
+      if (settingsSheet) {
+        var settingsData = settingsSheet.getDataRange().getValues();
+        // 1行目はヘッダー [クラス, スプレッドシートID, URL]
+        for (var i = 1; i < settingsData.length; i++) {
+          var cNum = normalizeClass(settingsData[i][0]);
+          var sId = settingsData[i][1] ? settingsData[i][1].toString().trim() : "";
+          if (cNum && sId) {
+            sheetsToProcess.push({ classNum: cNum, sheetId: sId });
+          }
         }
-        
-        // ユーザーの要望により氏名（C列: data[i][2]）もリストに含める
-        students[classNum].push({
-          id: studentId,
-          name: data[i][2] ? data[i][2].toString().trim() : ""
-        });
+      }
+      
+      // クラス設定がない場合、または何も登録されていない場合は、マスタースプレッドシート自身の「名簿」から取得
+      if (sheetsToProcess.length === 0) {
+        var defaultSheet = masterSpreadsheet.getSheetByName("名簿") || masterSpreadsheet.getActiveSheet();
+        processSheet(defaultSheet, students);
+      } else {
+        // 各クラスのスプレッドシートから名簿を取得
+        for (var k = 0; k < sheetsToProcess.length; k++) {
+          try {
+            var targetSheet = SpreadsheetApp.openById(sheetsToProcess[k].sheetId).getSheetByName("名簿")
+                              || SpreadsheetApp.openById(sheetsToProcess[k].sheetId).getActiveSheet();
+            processSheet(targetSheet, students);
+          } catch(err) {
+            Logger.log("Error loading roster from sheet: " + sheetsToProcess[k].sheetId + ". Error: " + err.toString());
+          }
+        }
       }
       
       // 出席番号順にソート
@@ -152,6 +158,7 @@ function doPost(e) {
       var studentId = params.studentId;
       var password = params.password ? params.password.toString().trim() : "";
       
+      var sheet = getTargetSheet(classNumber);
       var data = sheet.getDataRange().getValues();
       var studentName = null;
       var authSuccess = false;
@@ -220,6 +227,7 @@ function doPost(e) {
 
     } else if (action === "get_all_writings") {
       var classNumber = normalizeClass(params.classNumber);
+      var sheet = getTargetSheet(classNumber);
       var data = sheet.getDataRange().getValues();
       var writings = [];
       
@@ -243,6 +251,7 @@ function doPost(e) {
     } else if (action === "get_student_writing") {
       var classNumber = normalizeClass(params.classNumber);
       var studentId = params.studentId;
+      var sheet = getTargetSheet(classNumber);
       var data = sheet.getDataRange().getValues();
       var result = null;
       
@@ -296,6 +305,66 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock(); // ロックを必ず解除
+  }
+}
+
+function getTargetSheet(classNumber) {
+  var masterSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var settingsSheet = masterSpreadsheet.getSheetByName("クラス設定");
+  if (!settingsSheet) {
+    // クラス設定シートがない場合は、マスタースプレッドシートの「名簿」または最初のアクティブシートを返す
+    return masterSpreadsheet.getSheetByName("名簿") || masterSpreadsheet.getActiveSheet();
+  }
+  
+  var data = settingsSheet.getDataRange().getValues();
+  var sheetId = "";
+  
+  // 1行目はヘッダー [クラス, スプレッドシートID, URL]
+  for (var i = 1; i < data.length; i++) {
+    if (normalizeClass(data[i][0]) == normalizeClass(classNumber)) {
+      sheetId = data[i][1] ? data[i][1].toString().trim() : "";
+      break;
+    }
+  }
+  
+  if (sheetId) {
+    try {
+      var targetSpreadsheet = SpreadsheetApp.openById(sheetId);
+      var sheet = targetSpreadsheet.getSheetByName("名簿") || targetSpreadsheet.getActiveSheet();
+      // もしシートが完全に空の場合は、初期ヘッダーを設定する（安全策）
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
+      }
+      return sheet;
+    } catch(err) {
+      Logger.log("Error opening spreadsheet by ID: " + sheetId + ". Error: " + err.toString());
+    }
+  }
+  
+  // フォールバック
+  var defaultSheet = masterSpreadsheet.getSheetByName("名簿") || masterSpreadsheet.getActiveSheet();
+  if (defaultSheet.getLastRow() === 0) {
+    defaultSheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
+  }
+  return defaultSheet;
+}
+
+function processSheet(sheet, students) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var classNum = normalizeClass(data[i][0]);
+    var studentId = data[i][1] ? parseInt(data[i][1]) : null;
+    
+    if (!classNum || !studentId) continue;
+    
+    if (!students[classNum]) {
+      students[classNum] = [];
+    }
+    
+    students[classNum].push({
+      id: studentId,
+      name: data[i][2] ? data[i][2].toString().trim() : ""
+    });
   }
 }
 
