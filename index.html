@@ -396,10 +396,10 @@
 
         <!-- 児童用コントロールパネル (右上に縦書き・縦並びで浮かせる) -->
         <div id="student-control-panel" class="d-none" style="position: fixed; right: 30px; top: 80px; z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 15px;">
-            <!-- 先生からのアドバイスボタン -->
-            <div id="teacher-comment-btn-wrapper" class="d-none">
-                <button id="teacherCommentBtn" class="btn btn-warning shadow-lg vertical-btn" style="height: 180px !important;">
-                    <i class="fa fa-commenting fa-lg"></i><strong>せんせいから</strong>
+            <!-- 先生からのアドバイスボタン（電球マーク） -->
+            <div id="teacher-comment-btn-wrapper">
+                <button id="teacherCommentBtn" class="btn btn-warning shadow-lg bulb-btn" title="先生より">
+                    <i class="fa fa-lightbulb-o" style="font-size: 24px;"></i>
                 </button>
             </div>
             <div id="save-status-btn-wrapper">
@@ -416,7 +416,7 @@
             <!-- アドバイス表示用ポップオーバー（吹き出し） -->
             <div id="teacher-comment-popover" class="d-none shadow-lg card border-warning" style="position: absolute; right: 70px; top: 0; width: 260px; z-index: 250;">
                 <div class="card-header bg-warning text-white p-2 small font-weight-bold" style="display: flex; justify-content: space-between; align-items: center; font-family: 'Noto Serif JP', 'Yu Mincho', serif;">
-                    <span>先生からのアドバイス</span>
+                    <span>先生より</span>
                     <button id="closeCommentBtn" type="button" class="close text-white" style="line-height: 0.5; outline: none; border: none; background: transparent; padding: 0; margin: 0; font-size: 20px;">&times;</button>
                 </div>
                 <div class="card-body p-3">
@@ -426,17 +426,30 @@
         </div>
 
         <style>
-            /* 先生のアドバイス吹き出しの矢印 */
+            /* 先生のアドバイス吹き出しの矢印（電球マークの高さに合わせる） */
             #teacher-comment-popover::after {
                 content: "";
                 position: absolute;
-                top: 30px;
+                top: 14px;
                 right: -10px;
                 border-width: 10px 0 10px 10px;
                 border-style: solid;
                 border-color: transparent transparent transparent #ffc107;
                 display: block;
                 width: 0;
+            }
+            /* 電球ボタンのスタイル（丸型） */
+            .bulb-btn {
+                width: 48px !important;
+                height: 48px !important;
+                border-radius: 50% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 !important;
+            }
+            .bulb-btn i {
+                margin: 0 !important;
             }
             /* 縦書きボタン of の共通スタイル */
             .vertical-btn {

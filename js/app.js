@@ -1066,22 +1066,17 @@ class Main {
 
     updateTeacherComment(comment) {
         const hasComment = comment && comment.trim() !== "";
+        const displayComment = hasComment ? comment : "まだありません。";
+        
         // 児童用のポップオーバーとボタンの制御
-        if (hasComment) {
-            this.$teacherCommentTextPopover.text(comment);
-            this.$teacherCommentBtnWrapper.removeClass("d-none");
-        } else {
-            this.$teacherCommentTextPopover.text("");
-            this.$teacherCommentBtnWrapper.addClass("d-none");
-            this.$teacherCommentPopover.addClass("d-none");
-        }
+        this.$teacherCommentTextPopover.text(displayComment);
+        this.$teacherCommentBtnWrapper.removeClass("d-none"); // 電球マークボタンは常に表示
 
         // 設定ドロワー内のコメント表示の制御（教師画面や互換用）
+        this.$teacherCommentText.text(displayComment);
         if (hasComment) {
-            this.$teacherCommentText.text(comment);
             this.$teacherCommentBox.removeClass("d-none");
         } else {
-            this.$teacherCommentText.text("アドバイスはまだありません。");
             this.$teacherCommentBox.addClass("d-none");
         }
     }
