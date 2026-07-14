@@ -1,12 +1,4 @@
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000); // 競合を防ぐため最大10秒間順番待ちします
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "サーバーが混雑しています。少し待ってから再度お試しください。" }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
   try {
     var params = JSON.parse(e.postData.contents);
     var action = params.action || "save";
@@ -306,8 +298,6 @@ function doPost(e) {
   } catch(error) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    lock.releaseLock(); // ロックを必ず解除
   }
 }
 
