@@ -94,7 +94,8 @@ function doPost(e) {
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: finalSettings // 教師設定に「できた」状態をマージして返す
+            settings: finalSettings, // 教師設定に「できた」状態をマージして返す
+            teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
           };
           break;
         }
@@ -195,14 +196,15 @@ function doPost(e) {
               finalSettings = JSON.stringify({ isCompleted: isCompletedVal });
             }
 
-            // ログイン成功と同時に、同じ行 of のG列(本文)からデータを取得してロードする
+            // ログイン成功と同時に、同じ行のG列(本文)、I列(アドバイス)からデータを取得してロードする
             savedData = {
               classNumber: data[i][0],
               studentId: data[i][1],
               studentName: studentName,
               charCount: data[i][5] || 0,
               text: data[i][6] || "",
-              settings: finalSettings
+              settings: finalSettings,
+              teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
             };
           }
           break;
@@ -286,7 +288,8 @@ function doPost(e) {
             studentName: data[i][2],
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: finalSettings
+            settings: finalSettings,
+            teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
           };
           break;
         }

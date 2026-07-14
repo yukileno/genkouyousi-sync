@@ -36,6 +36,13 @@ class Main {
         this.$completeBtn = $("#completeBtn").click(this.onCompleteToggleClicked.bind(this));
         this.isCompletedStatus = false; // できた！（完成）フラグ
 
+        // 先生からのアドバイス（児童用）のバインド
+        this.$teacherCommentBtnWrapper = $("#teacher-comment-btn-wrapper");
+        this.$teacherCommentBtn = $("#teacherCommentBtn").click(this.onTeacherCommentBtnClicked.bind(this));
+        this.$teacherCommentPopover = $("#teacher-comment-popover");
+        this.$teacherCommentTextPopover = $("#teacher-comment-text-popover");
+        $("#closeCommentBtn").click(() => this.$teacherCommentPopover.addClass("d-none"));
+
         // 保存ステータスボタンのバインド
         this.$saveStatusBtn = $("#saveStatusBtn").click(this.onSaveStatusBtnClicked.bind(this));
         this.saveStatus = "saved"; // "saved", "dirty", "saving", "error"
@@ -575,13 +582,8 @@ class Main {
                                 this.genko.refresh();
                             }
                             
-                            // 先生からのアドバイスを表示する（一時的に非表示設定）
-                            this.$teacherCommentBox.addClass("d-none");
-                            if (data.teacherComment && data.teacherComment.trim() !== "") {
-                                this.$teacherCommentText.text(data.teacherComment);
-                            } else {
-                                this.$teacherCommentText.text("アドバイスはまだありません。");
-                            }
+                            // 先生からのアドバイスを表示・制御する
+                            this.updateTeacherComment(data.teacherComment || "");
                             
                             console.log("スプレッドシートからの作文データのロードに成功しました");
                         } else {
@@ -623,8 +625,7 @@ class Main {
             this.$loginClassNum.val("");
             this.$loginStudentSelect.val("").prop("disabled", true);
             this.$loginPassword.val("");
-            this.$teacherCommentBox.addClass("d-none");
-            this.$teacherCommentText.text("");
+            this.updateTeacherComment("");
             this.$studentControlPanel.addClass("d-none");
             $("#controlPane, #sharePane").removeClass("d-none"); // ログアウト後は再表示
             // 設定無効化を解除（ゲスト状態なので一応有効に）
@@ -936,6 +937,9 @@ class Main {
                 this.genko.setText(w.text || "");
                 this.genko.refresh();
                 
+                // アドバイスの反映
+                this.updateTeacherComment(w.teacherComment || "");
+                
                 // レンダリング完了後、用紙上部に印刷用ヘッダーを埋め込み
                 setTimeout(() => {
                     $(".paper-print-header").remove();
@@ -1052,6 +1056,33 @@ class Main {
                 .css("background-color", "")
                 .html('<i class="fa fa-exclamation-triangle fa-lg"></i><strong>保存失敗</strong>');
             $btn.prop("disabled", false);
+        }
+    }
+
+    onTeacherCommentBtnClicked(e) {
+        e.preventDefault();
+        this.$teacherCommentPopover.toggleClass("d-none");
+    }
+
+    updateTeacherComment(comment) {
+        const hasComment = comment && comment.trim() !== "";
+        // 児童用のポップオーバーとボタンの制御
+        if (hasComment) {
+            this.$teacherCommentTextPopover.text(comment);
+            this.$teacherCommentBtnWrapper.removeClass("d-none");
+        } else {
+            this.$teacherCommentTextPopover.text("");
+            this.$teacherCommentBtnWrapper.addClass("d-none");
+            this.$teacherCommentPopover.addClass("d-none");
+        }
+
+        // 設定ドロワー内のコメント表示の制御（教師画面や互換用）
+        if (hasComment) {
+            this.$teacherCommentText.text(comment);
+            this.$teacherCommentBox.removeClass("d-none");
+        } else {
+            this.$teacherCommentText.text("アドバイスはまだありません。");
+            this.$teacherCommentBox.addClass("d-none");
         }
     }
 }
