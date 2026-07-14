@@ -80,10 +80,55 @@ class Main {
         window.onbeforeprint = () => {
             window.originalTitleForPrint = document.title;
             document.title = "作文";
+
+            // 児童画面などの場合、印刷時のみフッターを動的に埋め込む
+            const classNum = window.localStorage.getItem("genko_classNumber");
+            const studentId = window.localStorage.getItem("genko_studentId");
+            const studentName = window.localStorage.getItem("genko_studentName");
+
+            if (classNum && studentId && studentName) {
+                const isTeacher = (studentId === "99" || studentId === 99);
+                // 先生画面ではロード時にすでに埋め込んでいるため、ここでは児童画面のみ処理する
+                if (!isTeacher) {
+                    $(".paper-print-footer").remove();
+                    const $papers = this.getPages();
+                    const writingType = $("#writingTypeSelect").val() || "none";
+                    const writingTitle = $("#writingTitleInput").val() || "";
+                    const typeMap = {
+                        "none": "指定なし",
+                        "感想文": "読書感想文",
+                        "人権": "人権作文",
+                        "健康": "健康作文",
+                        "交通": "交通安全作文"
+                    };
+                    const typeName = typeMap[writingType] || "作文";
+
+                    $papers.each(function(p) {
+                        const pageNumText = (p + 1) + "/" + $papers.length;
+                        let footerText = classNum + "組 " + studentId + "番 " + studentName + "　" + typeName;
+                        if (writingType === "感想文" && writingTitle) {
+                            footerText += "　題名：「" + writingTitle + "」";
+                        }
+                        footerText += "　" + pageNumText;
+                        
+                        $("<div>")
+                            .addClass("paper-print-footer")
+                            .text(footerText)
+                            .appendTo($(this));
+                    });
+                }
+            }
         };
         window.onafterprint = () => {
             if (window.originalTitleForPrint !== undefined) {
                 document.title = window.originalTitleForPrint;
+            }
+            
+            // 児童画面の場合は、印刷用の一時フッターを削除する
+            const studentId = window.localStorage.getItem("genko_studentId");
+            const isTeacher = (studentId === "99" || studentId === 99);
+            if (!isTeacher) {
+                $(".paper-print-footer").remove();
             }
         };
 
@@ -114,6 +159,8 @@ class Main {
             await this.genko.init();
             
             this.settings.init();
+            this.$writingTitleInput = $("#writingTitleInput").on("input", this.onInputChanged.bind(this));
+            this.$writingTypeSelect = $("#writingTypeSelect").on("change", this.onWritingTypeChanged.bind(this));
             this.setPrintPageSize(this.genko.rowSize, this.genko.colSize);
             $('[data-toggle="tooltip"]').tooltip();
             
@@ -458,10 +505,12 @@ class Main {
         if (classNum && studentId && studentName) {
             $("#login-display-class").text(classNum + "組　" + studentId + "番");
             $("#login-display-name").text(studentName);
+            $("#writing-meta-container").removeClass("d-none"); // ログイン時に表示
             
             // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
             if (studentId === "99" || studentId === 99) {
                 this.genko.setReadOnly(true); // 教師画面では児童作文の誤書き換えを防ぐためエディタを読み取り専用に
+                $("#writingTypeSelect, #writingTitleInput").prop("disabled", true); // 教師用画面では作文の種類・題名も変更不可に
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
                 $("#controlPane, #sharePane").removeClass("d-none"); // 設定・共有タブを表示
                 // 設定変更を許可する
@@ -474,6 +523,7 @@ class Main {
                 await this.initTeacherWorkspace(classNum);
             } else {
                 this.genko.setReadOnly(false); // 児童画面では書き込み可能に
+                $("#writingTypeSelect, #writingTitleInput").prop("disabled", false); // 児童用画面では作文の種類・題名も変更可能に
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
@@ -486,12 +536,14 @@ class Main {
             this.$dialogLogin.modal("hide");
         } else {
             this.genko.setReadOnly(false); // ゲスト状態でもお試し入力できるように書き込み可能に
+            $("#writingTypeSelect, #writingTitleInput").prop("disabled", false); // ゲスト状態でも変更可能に
             $("#login-display-class").text("未ログイン");
             $("#login-display-name").text("ゲスト");
             this.$teacherSidebar.addClass("d-none");
             $("body").removeClass("has-teacher-sidebar");
             this.$studentControlPanel.addClass("d-none"); // 未ログイン時は非表示
             $("#controlPane, #sharePane").removeClass("d-none"); // ログイン前は表示
+            $("#writing-meta-container").addClass("d-none"); // 未ログイン時は非表示
             this.$dialogLogin.modal("show");
             // 未ログインの場合、サーバーから児童名簿を読み込む
             await this.loadStudentRoster();
@@ -577,6 +629,17 @@ class Main {
                                 this.updateCompleteButtonUi();
                             }
 
+                            // 作文の種類と題名のロードとUI反映
+                            const wType = data.writingType || "none";
+                            $("#writingTypeSelect").val(wType);
+                            this.updateWritingTypeUi(wType);
+
+                            if (data.writingTitle) {
+                                $("#writingTitleInput").val(data.writingTitle);
+                            } else {
+                                $("#writingTitleInput").val("");
+                            }
+
                             if (data.text) {
                                 this.genko.setText(data.text);
                                 this.genko.refresh();
@@ -628,9 +691,12 @@ class Main {
             this.updateTeacherComment("");
             this.$studentControlPanel.addClass("d-none");
             $("#controlPane, #sharePane").removeClass("d-none"); // ログアウト後は再表示
+            $("#writingTypeSelect").val("none");
+            this.updateWritingTypeUi("none");
+            $("#writing-meta-container").addClass("d-none");
             // 設定無効化を解除（ゲスト状態なので一応有効に）
             $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
-            $(".paper-print-header").remove();
+            $(".paper-print-footer").remove();
 
             // エディタをクリア
             this.genko.clear();
@@ -697,7 +763,9 @@ class Main {
                             charCount: charCount,
                             text: text,
                             settings: isTeacher ? JSON.stringify(settingsData) : "",
-                            isCompleted: isTeacher ? false : this.isCompletedStatus
+                            isCompleted: isTeacher ? false : this.isCompletedStatus,
+                            writingType: isTeacher ? "none" : ($("#writingTypeSelect").val() || "none"),
+                            writingTitle: isTeacher ? "" : ($("#writingTitleInput").val() || "")
                         })
                     });
                     const res = await response.json();
@@ -891,7 +959,7 @@ class Main {
             this.$teacherSidebar.find(`.student-list-item[data-student-id="${studentId}"]`).addClass("active");
         }
 
-        $(".paper-print-header").remove(); // 古いヘッダーを削除
+        $(".paper-print-footer").remove(); // 古いフッターを削除
 
         if (!studentId) {
             this.genko.clear();
@@ -933,6 +1001,17 @@ class Main {
                     this.genko.clear();
                 }
 
+                // 作文の種類と題名の反映
+                const wType = w.writingType || "none";
+                $("#writingTypeSelect").val(wType);
+                this.updateWritingTypeUi(wType);
+
+                if (w.writingTitle) {
+                    $("#writingTitleInput").val(w.writingTitle);
+                } else {
+                    $("#writingTitleInput").val("");
+                }
+
                 // 作文本文の反映
                 this.genko.setText(w.text || "");
                 this.genko.refresh();
@@ -940,17 +1019,32 @@ class Main {
                 // アドバイスの反映
                 this.updateTeacherComment(w.teacherComment || "");
                 
-                // レンダリング完了後、用紙上部に印刷用ヘッダーを埋め込み
+                // レンダリング完了後、用紙下部に印刷用フッターを埋め込み
                 setTimeout(() => {
-                    $(".paper-print-header").remove();
+                    $(".paper-print-footer").remove();
                     const $papers = $(".genko-paper");
+                    const writingType = $("#writingTypeSelect").val() || "none";
+                    const writingTitle = $("#writingTitleInput").val() || "";
+                    const typeMap = {
+                        "none": "指定なし",
+                        "感想文": "読書感想文",
+                        "人権": "人権作文",
+                        "健康": "健康作文",
+                        "交通": "交通安全作文"
+                    };
+                    const typeName = typeMap[writingType] || "作文";
+
                     $papers.each(function(p) {
                         const pageNumText = (p + 1) + "/" + $papers.length;
-                        const headerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + pageNumText;
+                        let footerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + typeName;
+                        if (writingType === "感想文" && writingTitle) {
+                            footerText += "　題名：「" + writingTitle + "」";
+                        }
+                        footerText += "　" + pageNumText;
                         
                         $("<div>")
-                            .addClass("paper-print-header")
-                            .text(headerText)
+                            .addClass("paper-print-footer")
+                            .text(footerText)
                             .appendTo($(this));
                     });
                 }, 300);
@@ -1078,6 +1172,21 @@ class Main {
             this.$teacherCommentBox.removeClass("d-none");
         } else {
             this.$teacherCommentBox.addClass("d-none");
+        }
+    }
+
+    onWritingTypeChanged(e) {
+        const nextVal = $(e.target).val();
+        this.updateWritingTypeUi(nextVal);
+        this.triggerAutoSaveToServer(true);
+    }
+
+    updateWritingTypeUi(type) {
+        if (type === "感想文") {
+            $("#writing-title-wrapper").removeClass("d-none");
+        } else {
+            $("#writing-title-wrapper").addClass("d-none");
+            $("#writingTitleInput").val(""); // 題名をクリア
         }
     }
 }

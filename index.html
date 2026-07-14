@@ -24,7 +24,7 @@
         <div class="bg-shade"></div>
         <div class="bg-lighting"></div>
         <header>
-            原稿用紙ライター <span class="tc">Ver.</span>２・０・１
+            原稿用紙ライター <span class="tc">Ver.</span>２・１・０
             <div id="login-info" class="login-info-header" style="float: right; font-size: 14px; font-weight: normal; margin-right: 20px;">
                 <span id="login-display-class">未ログイン</span>&nbsp;
                 <span id="login-display-name">ゲスト</span>&nbsp;
@@ -34,6 +34,34 @@
 
         <!-- 教師用サイドバー -->
         <div id="teacher-sidebar" class="d-none"></div>
+
+        <!-- 作文の種類・題名入力エリア -->
+        <div id="writing-meta-container" class="d-none" style="margin: 20px auto 10px auto; max-width: 600px; padding: 0 15px; position: relative; z-index: 100; display: flex; flex-direction: column; gap: 10px;">
+            <!-- 作文の種類選択 -->
+            <div class="input-group shadow-sm">
+                <div class="input-group-prepend">
+                    <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">作文の種類</span>
+                </div>
+                <select id="writingTypeSelect" class="form-control custom-select" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
+                    <option value="none">指定なし</option>
+                    <option value="感想文">読書感想文</option>
+                    <option value="人権">人権作文</option>
+                    <option value="健康">健康作文</option>
+                    <option value="交通">交通安全作文</option>
+                </select>
+            </div>
+            
+            <!-- 題名入力欄（読書感想文用） -->
+            <div id="writing-title-wrapper" class="d-none" style="display: flex; width: 100%;">
+                <div class="input-group shadow-sm">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">題名</span>
+                    </div>
+                    <input type="text" id="writingTitleInput" class="form-control" placeholder="ここに読書感想文の題名（本の名前など）を書いてね" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
+                </div>
+            </div>
+        </div>
+
         <div class="genko"></div>
 
         <!-- 設定タブ -->
@@ -146,6 +174,7 @@
                             <select id="wallpaper" class="form-control custom-select"></select>
                         </div>
                     </div>
+                    <!-- 作文の種類は児童個別で設定・保存するようになったため、設定パネルからは削除されました -->
                     <div class="drawer-item">
                         <div class="input-group">
                             <div class="input-group-prepend input-group-header">

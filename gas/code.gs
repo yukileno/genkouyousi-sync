@@ -38,6 +38,14 @@ function doPost(e) {
         // 児童用のできた！(完了)ステータスは J列（10列目）に書き込む
         if (studentId != 99 && studentId != "99") {
           sheet.getRange(foundRow, 10).setValue(isCompleted ? "できた" : "");
+          
+          // 作文の種類 (K列: 11) と題名 (L列: 12) を保存
+          if (params.writingType !== undefined) {
+            sheet.getRange(foundRow, 11).setValue(params.writingType);
+          }
+          if (params.writingTitle !== undefined) {
+            sheet.getRange(foundRow, 12).setValue(params.writingTitle);
+          }
         }
         
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
@@ -87,7 +95,9 @@ function doPost(e) {
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
             settings: finalSettings, // 教師設定に「できた」状態をマージして返す
-            teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
+            teacherComment: data[i][8] ? data[i][8].toString().trim() : "", // I列: 先生のアドバイス
+            writingType: data[i][10] || "", // K列: 作文の種類
+            writingTitle: data[i][11] || "" // L列: 題名
           };
           break;
         }
@@ -196,7 +206,9 @@ function doPost(e) {
               charCount: data[i][5] || 0,
               text: data[i][6] || "",
               settings: finalSettings,
-              teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
+              teacherComment: data[i][8] ? data[i][8].toString().trim() : "", // I列: 先生のアドバイス
+              writingType: data[i][10] || "", // K列: 作文の種類
+              writingTitle: data[i][11] || "" // L列: 題名
             };
           }
           break;
@@ -234,7 +246,9 @@ function doPost(e) {
             studentName: data[i][2] ? data[i][2].toString().trim() : "",
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
-            settings: JSON.stringify({ isCompleted: isCompletedVal })
+            settings: JSON.stringify({ isCompleted: isCompletedVal }),
+            writingType: data[i][10] || "", // K列: 作文の種類
+            writingTitle: data[i][11] || "" // L列: 題名
           });
         }
       }
@@ -281,7 +295,9 @@ function doPost(e) {
             charCount: data[i][5] || 0,
             text: data[i][6] || "",
             settings: finalSettings,
-            teacherComment: data[i][8] ? data[i][8].toString().trim() : "" // I列: 先生のアドバイス
+            teacherComment: data[i][8] ? data[i][8].toString().trim() : "", // I列: 先生のアドバイス
+            writingType: data[i][10] || "", // K列: 作文の種類
+            writingTitle: data[i][11] || "" // L列: 題名
           };
           break;
         }
@@ -326,7 +342,7 @@ function getTargetSheet(classNumber) {
       var sheet = targetSpreadsheet.getSheetByName("名簿") || targetSpreadsheet.getActiveSheet();
       // もしシートが完全に空の場合は、初期ヘッダーを設定する（安全策）
       if (sheet.getLastRow() === 0) {
-        sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
+        sheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ", "作文の種類", "題名"]);
       }
       return sheet;
     } catch(err) {
@@ -337,7 +353,7 @@ function getTargetSheet(classNumber) {
   // フォールバック
   var defaultSheet = masterSpreadsheet.getSheetByName("名簿") || masterSpreadsheet.getActiveSheet();
   if (defaultSheet.getLastRow() === 0) {
-    defaultSheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ"]);
+    defaultSheet.appendRow(["クラス", "出席番号", "氏名", "パスワード", "最終保存日時", "文字数", "本文", "設定データ", "先生のアドバイス", "できたフラグ", "作文の種類", "題名"]);
   }
   return defaultSheet;
 }
