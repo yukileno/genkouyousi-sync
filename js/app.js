@@ -94,9 +94,11 @@ class Main {
                     const $papers = this.getPages();
                     const writingType = $("#writingTypeSelect").val() || "none";
                     const writingTitle = $("#writingTitleInput").val() || "";
+                    const bookName = $("#bookNameInput").val() || "";
                     const typeMap = {
                         "none": "指定なし",
-                        "感想文": "読書感想文",
+                        "課題図書": "読書感想文（課題図書）",
+                        "自由図書": "読書感想文（自由図書）",
                         "人権": "人権作文",
                         "健康": "健康作文",
                         "交通": "交通安全作文"
@@ -106,8 +108,14 @@ class Main {
                     $papers.each(function(p) {
                         const pageNumText = (p + 1) + "/" + $papers.length;
                         let footerText = classNum + "組 " + studentId + "番 " + studentName + "　" + typeName;
-                        if (writingType === "感想文" && writingTitle) {
-                            footerText += "　題名：「" + writingTitle + "」";
+                        const isKansoubun = (writingType === "課題図書" || writingType === "自由図書");
+                        if (isKansoubun) {
+                            if (writingTitle) {
+                                footerText += "　題名：「" + writingTitle + "」";
+                            }
+                            if (bookName) {
+                                footerText += "　本の名前：「" + bookName + "」";
+                            }
                         }
                         footerText += "　" + pageNumText;
                         
@@ -510,7 +518,7 @@ class Main {
             // 教師用メニューの表示制御 (出席番号「99」を教師用とする)
             if (studentId === "99" || studentId === 99) {
                 this.genko.setReadOnly(true); // 教師画面では児童作文の誤書き換えを防ぐためエディタを読み取り専用に
-                $("#writingTypeSelect, #writingTitleInput").prop("disabled", true); // 教師用画面では作文の種類・題名も変更不可に
+                $("#writingTypeSelect, #writingTitleInput, #bookNameInput").prop("disabled", true); // 教師用画面では作文の種類・題名・本の名前も変更不可に
                 this.$studentControlPanel.addClass("d-none"); // 先生用画面では非表示
                 $("#controlPane, #sharePane").removeClass("d-none"); // 設定・共有タブを表示
                 // 設定変更を許可する
@@ -523,7 +531,7 @@ class Main {
                 await this.initTeacherWorkspace(classNum);
             } else {
                 this.genko.setReadOnly(false); // 児童画面では書き込み可能に
-                $("#writingTypeSelect, #writingTitleInput").prop("disabled", false); // 児童用画面では作文の種類・題名も変更可能に
+                $("#writingTypeSelect, #writingTitleInput, #bookNameInput").prop("disabled", false); // 児童用画面では作文の種類・題名・本の名前も変更可能に
                 this.$teacherSidebar.addClass("d-none");
                 $("body").removeClass("has-teacher-sidebar");
                 this.$studentControlPanel.removeClass("d-none"); // 児童用画面では表示
@@ -640,6 +648,12 @@ class Main {
                                 $("#writingTitleInput").val("");
                             }
 
+                            if (data.bookName) {
+                                $("#bookNameInput").val(data.bookName);
+                            } else {
+                                $("#bookNameInput").val("");
+                            }
+
                             if (data.text) {
                                 this.genko.setText(data.text);
                                 this.genko.refresh();
@@ -693,6 +707,8 @@ class Main {
             $("#controlPane, #sharePane").removeClass("d-none"); // ログアウト後は再表示
             $("#writingTypeSelect").val("none");
             this.updateWritingTypeUi("none");
+            $("#writingTitleInput").val("");
+            $("#bookNameInput").val("");
             $("#writing-meta-container").addClass("d-none");
             // 設定無効化を解除（ゲスト状態なので一応有効に）
             $("#controlPane").find("input, select, .size-preset button, #colorPalette button, #selectionStyleColors button").prop("disabled", false);
@@ -765,7 +781,8 @@ class Main {
                             settings: isTeacher ? JSON.stringify(settingsData) : "",
                             isCompleted: isTeacher ? false : this.isCompletedStatus,
                             writingType: isTeacher ? "none" : ($("#writingTypeSelect").val() || "none"),
-                            writingTitle: isTeacher ? "" : ($("#writingTitleInput").val() || "")
+                            writingTitle: isTeacher ? "" : ($("#writingTitleInput").val() || ""),
+                            bookName: isTeacher ? "" : ($("#bookNameInput").val() || "")
                         })
                     });
                     const res = await response.json();
@@ -1012,6 +1029,12 @@ class Main {
                     $("#writingTitleInput").val("");
                 }
 
+                if (w.bookName) {
+                    $("#bookNameInput").val(w.bookName);
+                } else {
+                    $("#bookNameInput").val("");
+                }
+
                 // 作文本文の反映
                 this.genko.setText(w.text || "");
                 this.genko.refresh();
@@ -1025,9 +1048,11 @@ class Main {
                     const $papers = $(".genko-paper");
                     const writingType = $("#writingTypeSelect").val() || "none";
                     const writingTitle = $("#writingTitleInput").val() || "";
+                    const bookName = $("#bookNameInput").val() || "";
                     const typeMap = {
                         "none": "指定なし",
-                        "感想文": "読書感想文",
+                        "課題図書": "読書感想文（課題図書）",
+                        "自由図書": "読書感想文（自由図書）",
                         "人権": "人権作文",
                         "健康": "健康作文",
                         "交通": "交通安全作文"
@@ -1037,8 +1062,14 @@ class Main {
                     $papers.each(function(p) {
                         const pageNumText = (p + 1) + "/" + $papers.length;
                         let footerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + typeName;
-                        if (writingType === "感想文" && writingTitle) {
-                            footerText += "　題名：「" + writingTitle + "」";
+                        const isKansoubun = (writingType === "課題図書" || writingType === "自由図書");
+                        if (isKansoubun) {
+                            if (writingTitle) {
+                                footerText += "　題名：「" + writingTitle + "」";
+                            }
+                            if (bookName) {
+                                footerText += "　本の名前：「" + bookName + "」";
+                            }
                         }
                         footerText += "　" + pageNumText;
                         
@@ -1182,11 +1213,12 @@ class Main {
     }
 
     updateWritingTypeUi(type) {
-        if (type === "感想文") {
-            $("#writing-title-wrapper").removeClass("d-none");
+        if (type === "課題図書" || type === "自由図書") {
+            $("#writing-title-wrapper, #book-name-wrapper").removeClass("d-none");
         } else {
-            $("#writing-title-wrapper").addClass("d-none");
+            $("#writing-title-wrapper, #book-name-wrapper").addClass("d-none");
             $("#writingTitleInput").val(""); // 題名をクリア
+            $("#bookNameInput").val(""); // 本の名前をクリア
         }
     }
 }

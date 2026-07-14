@@ -24,7 +24,7 @@
         <div class="bg-shade"></div>
         <div class="bg-lighting"></div>
         <header>
-            原稿用紙ライター <span class="tc">Ver.</span>２・１・０
+            原稿用紙ライター <span class="tc">Ver.</span>２・２・０
             <div id="login-info" class="login-info-header" style="float: right; font-size: 14px; font-weight: normal; margin-right: 20px;">
                 <span id="login-display-class">未ログイン</span>&nbsp;
                 <span id="login-display-name">ゲスト</span>&nbsp;
@@ -44,7 +44,8 @@
                 </div>
                 <select id="writingTypeSelect" class="form-control custom-select" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
                     <option value="none">指定なし</option>
-                    <option value="感想文">読書感想文</option>
+                    <option value="課題図書">読書感想文（課題図書）</option>
+                    <option value="自由図書">読書感想文（自由図書）</option>
                     <option value="人権">人権作文</option>
                     <option value="健康">健康作文</option>
                     <option value="交通">交通安全作文</option>
@@ -57,7 +58,17 @@
                     <div class="input-group-prepend">
                         <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">題名</span>
                     </div>
-                    <input type="text" id="writingTitleInput" class="form-control" placeholder="ここに読書感想文の題名（本の名前など）を書いてね" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
+                    <input type="text" id="writingTitleInput" class="form-control" placeholder="ここに作文の題名を書いてね" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
+                </div>
+            </div>
+
+            <!-- 本の名前入力欄（読書感想文用） -->
+            <div id="book-name-wrapper" class="d-none" style="display: flex; width: 100%;">
+                <div class="input-group shadow-sm">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">本の名前</span>
+                    </div>
+                    <input type="text" id="bookNameInput" class="form-control" placeholder="ここに読んだ本の名まえを書いてね" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
                 </div>
             </div>
         </div>

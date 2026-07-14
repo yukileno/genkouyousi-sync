@@ -131,11 +131,13 @@
                     const $papers = $g.find(".genko-paper");
                     const writingTypeVal = w.writingType || "none";
                     const writingTitleVal = w.writingTitle || "";
+                    const bookNameVal = w.bookName || "";
                     
                     // 作文の種類の日本語表記マッピング
                     const typeMap = {
                         "none": "指定なし",
-                        "感想文": "読書感想文",
+                        "課題図書": "読書感想文（課題図書）",
+                        "自由図書": "読書感想文（自由図書）",
                         "人権": "人権作文",
                         "健康": "健康作文",
                         "交通": "交通安全作文"
@@ -145,8 +147,14 @@
                     $papers.each(function(p) {
                         const pageNumText = (p + 1) + "/" + $papers.length;
                         let footerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + typeName;
-                        if (writingTypeVal === "感想文" && writingTitleVal) {
-                            footerText += "　題名：「" + writingTitleVal + "」";
+                        const isKansoubun = (writingTypeVal === "課題図書" || writingTypeVal === "自由図書");
+                        if (isKansoubun) {
+                            if (writingTitleVal) {
+                                footerText += "　題名：「" + writingTitleVal + "」";
+                            }
+                            if (bookNameVal) {
+                                footerText += "　本の名前：「" + bookNameVal + "」";
+                            }
                         }
                         footerText += "　" + pageNumText;
                         
