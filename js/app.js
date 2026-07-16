@@ -6,6 +6,36 @@ import {SaveHandler} from "./savehandler.js";
 // スプレッドシート連携を有効にするには、ここにURLを記述してください。
 const GAS_URL = "https://script.google.com/macros/s/AKfycbwczI96EhZiMLuxjxMxmBImYdlv5uJH9iZrGxTlwtRQo1MWN8nNOuo5rt_A2S3QDEDl/exec";
 
+/**
+ * 通信失敗時に自動リトライを行う fetch のラッパー関数
+ * Google Apps Script やスプレッドシートの同時アクセス制限（時間制限やリソース上限）対策
+ */
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // レスポンスが正常なJSONかどうかを事前チェックし、パースエラー時もリトライ対象にする
+        const clone = response.clone();
+        try {
+            await clone.json();
+        } catch (jsonErr) {
+            throw new Error(`Invalid JSON response: ${jsonErr.message}`);
+        }
+        
+        return response;
+    } catch (err) {
+        if (retries > 0) {
+            console.warn(`通信エラーのためリトライします。残り回数: ${retries}回。エラー:`, err);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchWithRetry(url, options, retries - 1, delay * 1.5);
+        }
+        throw err;
+    }
+}
+
 class Main {
     constructor() {
         this.browser = (/(msie|trident|edge|chrome|safari|firefox|opera)/
@@ -574,7 +604,7 @@ class Main {
 
             await this.startProcessing("backdrop-loading");
             try {
-                const response = await fetch(GAS_URL, {
+                const response = await fetchWithRetry(GAS_URL, {
                     method: "POST",
                     mode: "cors",
                     headers: {
@@ -765,7 +795,7 @@ class Main {
                 }
 
                 try {
-                    const response = await fetch(GAS_URL, {
+                    const response = await fetchWithRetry(GAS_URL, {
                         method: "POST",
                         mode: "cors",
                         headers: {
@@ -815,7 +845,7 @@ class Main {
 
     async loadStudentRoster() {
         try {
-            const response = await fetch(GAS_URL, {
+            const response = await fetchWithRetry(GAS_URL, {
                 method: "POST",
                 mode: "cors",
                 headers: {
@@ -911,7 +941,7 @@ class Main {
             }
 
             // 各児童の提出状況（誰が作文を書いているか、完成しているか）を色分けするため、一括ステータスをロード
-            const response = await fetch(GAS_URL, {
+            const response = await fetchWithRetry(GAS_URL, {
                 method: "POST",
                 mode: "cors",
                 headers: {
@@ -989,7 +1019,7 @@ class Main {
             const classNum = window.localStorage.getItem("genko_classNumber");
             
             // 指定された児童1人分の「最新」の作文データをGASから直接フェッチ
-            const response = await fetch(GAS_URL, {
+            const response = await fetchWithRetry(GAS_URL, {
                 method: "POST",
                 mode: "cors",
                 headers: {
@@ -1087,7 +1117,7 @@ class Main {
             }
         } catch (err) {
             console.error("児童作文データのロードエラー:", err);
-            alert("作文データの取得中にエラーが発生しました。");
+            alert("作文データの取得中にエラーが発生しました。\nネットワーク接続が一時的に不安定か、サーバー（GAS）が非常に混み合っている可能性があります。\n少し時間をおいてもう一度お試しください。\n\n詳細: " + err.message);
         } finally {
             this.endProcessing();
         }
@@ -1100,7 +1130,7 @@ class Main {
         if (!classNum || (studentId !== "99" && studentId !== 99)) return;
         
         try {
-            const response = await fetch(GAS_URL, {
+            const response = await fetchWithRetry(GAS_URL, {
                 method: "POST",
                 mode: "cors",
                 headers: {
