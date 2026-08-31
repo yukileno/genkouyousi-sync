@@ -1,0 +1,322 @@
+import {GenkoYoshi} from "./genkoyoshi.js";
+
+export class Settings {
+    constructor($container, main) {
+        this.main = main;
+        /** @type {GenkoYoshi} */
+        this.genko = main.genko;
+        this.$container = $container;
+        this.$body = $("#settings-content")
+
+        this.$rows = this.$body.find("#rows");
+        this.$cols = this.$body.find("#cols");
+        this.$cellOptionToggles = this.$body.find(".cell-option-toggle");
+        this.$lightColorRange = this.$body.find("#lightColor");
+        this.$colorPalette = this.$body.find("#colorPalette");
+        this.$wallpaper = this.$body.find("#wallpaper");
+        this.$selectionStyleType = this.$body.find("#selectionStyleType");
+        this.$selectionStyleColors = this.$body.find("#selectionStyleColors");
+        this.$showTeacherComment = this.$body.find("#showTeacherComment");
+        this.$showPrintFooter = this.$body.find("#showPrintFooter");
+
+        this.params = {
+            lightColor: 1,
+            wallpaper: "cover-wood1",
+            selectionStyle: GenkoYoshi.SELECTION_STYLE.default,
+            showTeacherComment: true,
+            showPrintFooter: true,
+        };
+    }
+
+    init() {
+        this.params = {
+            rows: this.genko.rowSize,
+            cols: this.genko.colSize,
+            cellOptions: this.genko.cellOptions,
+            lightColor: this.params.lightColor,
+            wallpaper: this.params.wallpaper,
+            selectionStyle: this.genko.selectionStyle,
+            showTeacherComment: this.params.showTeacherComment !== false,
+            showPrintFooter: this.params.showPrintFooter !== false
+        };
+
+        this.$body.find("#size-20x20").click(e => this.onSizeChanged(20, 20));
+        this.$body.find("#size-20x10").click(e => this.onSizeChanged(10, 20));
+        this.$body.find("#size-14x10").click(e => this.onSizeChanged(10, 14));
+        this.$body.find("#size-8x7").click(e => this.onSizeChanged(7, 8));
+        this.$rows.val(this.params.rows).change(this.onRowsChanged.bind(this));
+        this.$cols.val(this.params.cols).change(this.onColsChanged.bind(this));
+
+        this.$lightColorRange.val(this.params.lightColor).on("input", this.onLightColorChanged.bind(this));
+
+        this.$cellOptionToggles.each((idx, e) => 
+                $(e).prop("checked", this.genko.cellOptions[$(e).attr("id")]).click(this.onCellOptionToggled.bind(this)));
+
+        GenkoYoshi.COLOR_PALETTE.map(color =>
+            $("<button class='btn btn-outline-secondary'>")
+                .append($("<div class='color-indicator'>").css("background-color", color))
+                .toggleClass("active", color == this.genko.featuringColor)
+                .data("color", color)
+                .click(this.onColorChanged.bind(this))
+        ).forEach($btn => this.$colorPalette.append($btn));
+
+        Settings.WALLPAPER.map(group => {
+            var $optgrp = $("<optgroup>", {label: group.group});
+            group.list.map(wp => $("<option>").val(wp.key).text(wp.name)).forEach($opt => $optgrp.append($opt));
+            return $optgrp;
+        }).forEach($optgrp => this.$wallpaper.append($optgrp));
+        this.$wallpaper.val(this.params.wallpaper).change(this.onWallpaperChanged.bind(this));
+        this.$showTeacherComment
+            .prop("checked", this.params.showTeacherComment)
+            .change(this.onPrintDisplayChanged.bind(this));
+        this.$showPrintFooter
+            .prop("checked", this.params.showPrintFooter)
+            .change(this.onPrintDisplayChanged.bind(this));
+
+        this.$body.find("#font")
+                .val(this.genko.featuringFont)
+                .change(this.onFontChanged.bind(this));
+        this.$body.find("#fontRoman")
+                .val(this.genko.featuringFontRoman)
+                .change(this.onFontRomanChanged.bind(this));
+
+        this.$clearBtn = $("#clearBtn").click(this.onClearClicked.bind(this));
+        
+        this.main.setLightColor(this.params.lightColor);
+        this.main.setWallpaper(this.params.wallpaper);
+
+        this.$selectionStyleType.val(this.genko.selectionStyle.type).change(this.onSelectionStyleChanged.bind(this))
+        GenkoYoshi.SELECTION_COLOR_PALETTE.map(color =>
+            $("<button class='btn btn-outline-secondary'>")
+                .append($("<div class='color-indicator'>").css("background-color", color))
+                .toggleClass("active", color === this.genko.selectionStyle.color)
+                .data("color", color)
+                .click(this.onSelectionColorChanged.bind(this))
+        ).forEach($btn => $btn.appendTo(this.$selectionStyleColors));
+
+        const isDefault = this.$selectionStyleType.val() === "default";
+        this.$selectionStyleColors.find("button")
+            .attr("inert", isDefault ? "inert" : null)
+            .toggleClass("disabled", isDefault);
+
+        return this;
+    }
+
+    onSizeChanged(rows, cols) {
+        this.params.rows = rows;
+        this.params.cols = cols;
+        this.genko.setSize(this.params.rows, this.params.cols);
+        this.$rows.val(rows);
+        this.$cols.val(cols);
+        this.main.setPrintPageSize(rows, cols);
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onRowsChanged(e) {
+        let rows = $(e.target).val();
+        let cols = this.params.cols;
+        rows = Math.min(100, Math.max(3, rows));
+        $(e.target).val(rows);
+        this.params.rows = rows;
+        this.genko.setSize(this.params.rows, this.params.cols);
+        this.main.setPrintPageSize(rows, cols);
+        this.main.triggerAutoSaveToServer(true);
+    }
+    onColsChanged(e) {
+        let cols = $(e.target).val();
+        cols = Math.min(100, Math.max(3, cols));
+        $(e.target).val(cols);
+        this.params.cols = cols;
+        this.genko.setSize(this.params.rows, this.params.cols);
+        this.main.setPrintPageSize(this.params.rows, cols);
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onCellOptionToggled(e) {
+        let checked = $(e.target).is(":checked");
+        let name = $(e.target).attr("id");
+        this.params.cellOptions[name] = checked;
+        this.genko.setCellOption(name, checked);
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onColorChanged(e) {
+        let color = $(e.target).data("color");
+        this.genko.setColor(color);
+        this.$colorPalette.find(".btn").each((i, btn) => {
+            $(btn).toggleClass("active", $(btn).data("color") == color);
+        });
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onFontChanged(e) {
+        this.genko.setFont($(e.target).val());
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onFontRomanChanged(e) {
+        this.genko.setFontRoman($(e.target).val());
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onWallpaperChanged(e) {
+        let nextVal = $(e.target).val();
+        this.main.setWallpaper(nextVal);
+        this.params.wallpaper = nextVal;
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onLightColorChanged(e) {
+        let nextVal = $(e.target).val();
+        this.main.setLightColor(nextVal);
+        this.params.lightColor = nextVal;
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onPrintDisplayChanged() {
+        this.params.showTeacherComment = this.$showTeacherComment.is(":checked");
+        this.params.showPrintFooter = this.$showPrintFooter.is(":checked");
+        this.main.refreshScreenPrintDetails();
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onSelectionStyleChanged(e) {
+        const type = this.$selectionStyleType.val();
+        const color = this.$selectionStyleColors.find(".active").data("color") ?? GenkoYoshi.SELECTION_COLOR_PALETTE[0];
+        this.genko.setSelectionStyle({type, color});
+
+        const isDefault = type === "default";
+        this.$selectionStyleColors.find("button")
+            .attr("inert", isDefault ? "inert" : null)
+            .toggleClass("disabled", isDefault);
+        this.main.triggerAutoSaveToServer(true);
+    }
+
+    onSelectionColorChanged(e) {
+        const $target = $(e.target);
+        const type = this.$selectionStyleType.val();
+        const color = $target.data("color");
+        this.genko.setSelectionStyle({type, color});
+        this.main.triggerAutoSaveToServer(true);
+
+        $("#selectionStyleColors").find(".btn").each((i, btn) => {
+            $(btn).toggleClass("active", $(btn).data("color") === color);
+        });
+    }
+
+    onClearClicked(e) {
+        if (confirm("入力内容を消去しますか？保存内容も消去されます。")) {
+            this.genko.clear();
+            this.main.updateSaveStatus("dirty");
+            this.main.triggerAutoSaveToServer(true);
+            this.main.scheduleScreenPrintDetails();
+        }
+    }
+
+    getParams() {
+        return this.params;
+    }
+
+    apply(genkoSettings, appSettings) {
+        if (!genkoSettings) return;
+
+        // genkoオブジェクトに設定を適用
+        this.genko.setOptions(genkoSettings);
+
+        // 罫線色、フォント、選択範囲スタイルを実際に適用
+        if (this.genko.featuringColor) {
+            this.genko.setColor(this.genko.featuringColor);
+        }
+        this.genko.updateFont();
+        if (this.genko.selectionStyle) {
+            this.genko.setSelectionStyle(this.genko.selectionStyle);
+        }
+
+        // 文字組みオプション（禁則、ぶら下がり、縦中横等）を一括適用
+        if (genkoSettings.cellOptions) {
+            this.genko.cellOptions = $.extend(true, {}, this.genko.cellOptions, genkoSettings.cellOptions);
+            this.genko.updateText();
+            this.genko.setupContainer();
+            if (this.genko.inputMgr) {
+                this.genko.inputMgr.applyCellOptions(this.genko.cellOptions);
+            }
+        }
+
+        // ます数を強制適用して再描画
+        if (genkoSettings.rowSize && genkoSettings.colSize) {
+            this.genko.setSize(genkoSettings.rowSize, genkoSettings.colSize);
+        }
+        
+        // paramsを同期
+        this.params.rows = this.genko.rowSize;
+        this.params.cols = this.genko.colSize;
+        this.params.cellOptions = this.genko.cellOptions;
+        this.params.selectionStyle = this.genko.selectionStyle;
+        if (appSettings) {
+            $.extend(this.params, appSettings);
+        }
+        this.params.showTeacherComment = this.params.showTeacherComment !== false;
+        this.params.showPrintFooter = this.params.showPrintFooter !== false;
+
+        // UI要素の表示を更新
+        this.$rows.val(this.params.rows);
+        this.$cols.val(this.params.cols);
+        this.$lightColorRange.val(this.params.lightColor);
+        
+        this.$cellOptionToggles.each((idx, e) => {
+            $(e).prop("checked", this.genko.cellOptions[$(e).attr("id")]);
+        });
+
+        // 罫線色のアクティブ状態更新
+        this.$colorPalette.find(".btn").each((i, btn) => {
+            $(btn).toggleClass("active", $(btn).data("color") == this.genko.featuringColor);
+        });
+
+        this.$wallpaper.val(this.params.wallpaper);
+        this.$showTeacherComment.prop("checked", this.params.showTeacherComment);
+        this.$showPrintFooter.prop("checked", this.params.showPrintFooter);
+        this.$body.find("#font").val(this.genko.featuringFont);
+        this.$body.find("#fontRoman").val(this.genko.featuringFontRoman);
+
+        this.main.setLightColor(this.params.lightColor);
+        this.main.setWallpaper(this.params.wallpaper);
+
+        this.$selectionStyleType.val(this.genko.selectionStyle.type);
+        this.$selectionStyleColors.find(".btn").each((i, btn) => {
+            $(btn).toggleClass("active", $(btn).data("color") === this.genko.selectionStyle.color);
+        });
+
+        const isDefault = this.genko.selectionStyle.type === "default";
+        this.$selectionStyleColors.find("button")
+            .attr("inert", isDefault ? "inert" : null)
+            .toggleClass("disabled", isDefault);
+
+        this.main.setPrintPageSize(this.params.rows, this.params.cols);
+        this.main.scheduleScreenPrintDetails();
+    }
+
+}
+
+// For old Safari, static class fields define outside the class
+Settings.WALLPAPER = [
+        {group: "木目調", list: [
+            {key: "cover-wood1", name: "明るい木目調"},
+            {key: "cover-wood4", name: "白い木目調"},
+            {key: "cover-wood6", name: "落ち着いた木目調"},
+            {key: "cover-wood2", name: "濃いめの木目"},
+            {key: "cover-wood5", name: "暗めの木目調"},
+            {key: "pattern-wood1", name: "真っ黒な木目調"},
+            {key: "cover-wood3", name: "コルクボード風"}
+        ]},
+        {group: "ダンボール", list: [
+            {key: "cover-cardboard1", name: "ダンボール"},
+            {key: "cover-cardboard2", name: "ボロの箱"}
+        ]},
+        {group: "無地", list: [
+            {key: "solid-white", name: "白"},
+            {key: "solid-lightgrey", name: "明るいグレー"},
+            {key: "solid-darkgrey", name: "暗めのグレー"},
+            {key: "solid-cream", name: "クリーム"}
+        ]}
+    ];
+

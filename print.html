@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>作文</title>
+        <link rel="stylesheet" href="lib/bootstrap.min.css">
+        <link rel="stylesheet" href="css/fonts.css">
+        <link rel="stylesheet" href="css/genkoyoshi.css">
+        <link rel="stylesheet" href="css/index.css">
+        <style id="print-page-size">@page { size: A4 landscape; margin: 0; }</style>
+        
+        <script src="lib/jquery-3.3.1.min.js"></script>
+        <script src="lib/bootstrap.bundle.min.js"></script>
+        <script src="lib/unistring.js"></script>
+        
+        <style>
+            body {
+                background: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                color: black !important;
+            }
+            .student-print-wrapper {
+                display: block;
+            }
+            #print-status {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: white;
+                color: #333;
+                font-family: sans-serif;
+                font-size: 22px;
+                font-weight: bold;
+            }
+            .paper-print-footer {
+                position: absolute !important;
+                bottom: 2mm !important;
+                left: 5mm !important;
+                right: 5mm !important;
+                width: auto !important;
+                display: block !important;
+                font-family: sans-serif !important;
+                font-size: 12px !important;
+                font-weight: bold !important;
+                line-height: 1.25 !important;
+                color: #333 !important;
+                writing-mode: horizontal-tb !important;
+                white-space: normal !important;
+                overflow-wrap: anywhere !important;
+                text-align: left !important;
+            }
+            .genko {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                width: 100% !important;
+            }
+            .genko-paper {
+                margin: 4mm auto 0 auto !important;
+                box-shadow: none !important;
+                background: none !important;
+                page-break-before: auto !important;
+                break-before: auto !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                position: relative !important;
+                color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+            }
+            .genko-body {
+                margin: 12mm 5mm !important;
+            }
+            .genko-cell, .genko-line-header {
+                color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+            }
+            .student-print-wrapper:first-of-type .genko-paper:first-of-type {
+                page-break-before: avoid !important;
+                break-before: avoid !important;
+                margin-top: 4mm !important;
+            }
+            .student-print-wrapper:last-of-type .genko-paper:last-of-type {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+            .paper-print-comment {
+                display: block !important;
+                position: absolute !important;
+                top: 2mm !important;
+                left: 5mm !important;
+                right: 5mm !important;
+                z-index: 20 !important;
+                color: #d00000 !important;
+                direction: ltr !important;
+                writing-mode: horizontal-tb !important;
+                text-align: left !important;
+                font-family: "Noto Serif JP", "Yu Mincho", serif !important;
+                font-size: 12px !important;
+                font-weight: bold !important;
+                line-height: 1.35 !important;
+                white-space: pre-wrap !important;
+                overflow-wrap: anywhere !important;
+            }
+            @media print {
+                #print-status {
+                    display: none !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="print-status">全員分の作文を準備しています…</div>
+        <div id="print-container"></div>
+        
+        <script type="module">
+            import { GenkoYoshi } from "./js/genkoyoshi.js";
+            
+            async function startPrint() {
+                // 親ウィンドウからデータを取得
+                if (!window.opener || !window.opener.printData) {
+                    alert("印刷データが見つかりませんでした。");
+                    window.close();
+                    return;
+                }
+                
+                const writings = window.opener.printData;
+                const $container = $("#print-container");
+
+                // ブラウザの印刷ヘッダー用余白を作らず、用紙1枚を1ページ内に収める
+                let pageRule = "@page { size: A4 landscape; margin: 0; }";
+                if (writings.length > 0 && writings[0].settings) {
+                    try {
+                        const firstSettings = JSON.parse(writings[0].settings);
+                        const firstGenkoSettings = firstSettings.genkoSettings || {};
+                        if (firstGenkoSettings.rowSize == 10 && firstGenkoSettings.colSize == 20) {
+                            pageRule = "@page { size: A5 portrait; margin: 0; }";
+                        }
+                    } catch (err) {
+                        console.warn("印刷ページ設定の読み込みに失敗しました:", err);
+                    }
+                }
+                $("#print-page-size").text(pageRule);
+                
+                for (let i = 0; i < writings.length; i++) {
+                    const w = writings[i];
+                    $("#print-status").text(`全員分の作文を準備しています… ${i + 1}/${writings.length}`);
+                    
+                    const $wrapper = $("<div>").addClass("student-print-wrapper").appendTo($container);
+                    const $g = $("<div>").addClass("genko").appendTo($wrapper);
+                    
+                    let cols = 20, rows = 20;
+                    let parsedSettings = null;
+                    if (w.settings) {
+                        try {
+                            parsedSettings = JSON.parse(w.settings);
+                            if (parsedSettings.genkoSettings) {
+                                cols = parsedSettings.genkoSettings.colSize || 20;
+                                rows = parsedSettings.genkoSettings.rowSize || 20;
+                            }
+                        } catch (err) {
+                            console.error("設定パースエラー:", err);
+                        }
+                    }
+                    
+                    // 印刷ウィンドウ自身のドキュメント内で GenkoYoshi を初期化
+                    const gy = new GenkoYoshi($g, rows, cols);
+                    await gy.init();
+                    
+                    gy.setText(w.text || "");
+                    gy.refresh();
+                    
+                    // スタイル適用
+                    if (parsedSettings) {
+                        const gs = parsedSettings.genkoSettings || {};
+                        const as = parsedSettings.appSettings || {};
+                        if (gs.featuringColor) {
+                            $g.find(".genko-cell").css("border-color", gs.featuringColor);
+                            $g.find(".genko-line-header").css("color", gs.featuringColor);
+                            gy.setColor(gs.featuringColor);
+                        }
+                        if (gs.featuringFont) {
+                            $g.find(".genko-cell").addClass("font-" + gs.featuringFont);
+                            gy.setFont(gs.featuringFont);
+                        }
+                        if (as.wallpaper) {
+                            $g.find(".genko-paper").addClass("skin-" + as.wallpaper);
+                        }
+                    }
+                    
+                    // レンダリングのためのウェイト
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                    
+                    // 個別フッターの埋め込み
+                    const $papers = $g.find(".genko-paper");
+                    const writingTypeVal = w.writingType || "none";
+                    const writingTitleVal = w.writingTitle || "";
+                    const bookNameVal = w.bookName || "";
+                    const showTeacherComment = !parsedSettings || !parsedSettings.appSettings || parsedSettings.appSettings.showTeacherComment !== false;
+                    const showPrintFooter = !parsedSettings || !parsedSettings.appSettings || parsedSettings.appSettings.showPrintFooter !== false;
+                    
+                    // 作文の種類の日本語表記マッピング
+                    const typeMap = {
+                        "none": "指定なし",
+                        "課題図書": "読書感想文（課題図書）",
+                        "自由図書": "読書感想文（自由図書）",
+                        "人権": "人権作文",
+                        "健康": "健康作文",
+                        "交通": "交通安全作文"
+                    };
+                    const typeName = typeMap[writingTypeVal] || "作文";
+
+                    if (showPrintFooter) $papers.each(function(p) {
+                        const pageNumText = (p + 1) + "/" + $papers.length;
+                        let footerText = w.classNumber + "組 " + w.studentId + "番 " + w.studentName + "　" + typeName;
+                        const isKansoubun = (writingTypeVal === "課題図書" || writingTypeVal === "自由図書");
+                        if (isKansoubun) {
+                            if (writingTitleVal) {
+                                footerText += "　題名：「" + writingTitleVal + "」";
+                            }
+                            if (bookNameVal) {
+                                footerText += "　本の名前：「" + bookNameVal + "」";
+                            }
+                        }
+                        footerText += "　" + pageNumText;
+                        
+                        $("<div>")
+                            .addClass("paper-print-footer")
+                            .text(footerText)
+                            .appendTo($(this));
+                    });
+
+                    // I列の先生コメントがある場合だけ、1ページ目の上余白へ赤字で追加
+                    const teacherComment = (w.teacherComment || "").toString().trim();
+                    if (showTeacherComment && teacherComment && $papers.length > 0) {
+                        $("<div>")
+                            .addClass("paper-print-comment")
+                            .text(`先生から：${teacherComment}`)
+                            .appendTo($papers.first());
+                    }
+                }
+
+                $("#print-status").remove();
+                
+                // すべて完了したら印刷ダイアログを開く
+                setTimeout(() => {
+                    window.focus();
+                    window.print();
+                }, 1000);
+            }
+            
+            window.onbeforeprint = () => {
+                window.originalTitleForPrint = document.title;
+                document.title = "\u200B";
+            };
+            window.onafterprint = () => {
+                if (window.originalTitleForPrint !== undefined) {
+                    document.title = window.originalTitleForPrint;
+                }
+            };
+
+            $(() => {
+                startPrint().catch(err => {
+                    console.error("全員分の印刷準備に失敗しました:", err);
+                    $("#print-status")
+                        .text("印刷準備に失敗しました。画面を閉じて、もう一度お試しください。")
+                        .css("color", "#b00020");
+                });
+            });
+        </script>
+    </body>
+</html>
