@@ -6,6 +6,12 @@ import {Settings} from "./settings.js";
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzA6IKyGP-qhUgIOVTEMmOC9nI-IU0BI6qfl5k8Nt7XgtlIWtSUrQ7PCuqQYCrCD8SdvQ/exec";
 const SESSION_TOKEN_KEY = "genko_sessionToken";
 const RECOVERY_DRAFT_PREFIX = "genko_pendingDraft:";
+const SAVE_FAILURE_REAUTH_DELAY_MS = (() => {
+    const defaultDelay = 3 * 60 * 1000;
+    const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    const testDelay = Number(new URLSearchParams(window.location.search).get("saveFailureReauthDelayMs"));
+    return isLocalhost && Number.isFinite(testDelay) && testDelay >= 50 ? testDelay : defaultDelay;
+})();
 let authExpiryHandled = false;
 
 function getSessionToken() {
@@ -102,6 +108,8 @@ class Main {
         this.saveRequested = false;
         this.contentRevision = 0;
         this.lastSavedRevision = 0;
+        this.saveFailureReauthTimer = null;
+        this.reauthenticationRequired = false;
         this.printDetailsTimer = null;
         this.pageDetailsObserver = null;
         this.isDevMode = IS_DEV_MODE;
@@ -1137,6 +1145,54 @@ class Main {
         this.saveRequested = false;
         this.contentRevision = 0;
         this.lastSavedRevision = 0;
+        this.clearSaveFailureCountdown();
+        this.reauthenticationRequired = false;
+    }
+
+    clearSaveFailureCountdown() {
+        if (this.saveFailureReauthTimer) clearTimeout(this.saveFailureReauthTimer);
+        this.saveFailureReauthTimer = null;
+    }
+
+    startSaveFailureCountdown() {
+        const identity = this.getLoggedInIdentity();
+        if (!identity || identity.isTeacher || this.reauthenticationRequired || this.saveFailureReauthTimer) return;
+
+        this.saveFailureReauthTimer = setTimeout(() => {
+            this.saveFailureReauthTimer = null;
+            this.forceReauthenticationAfterSaveFailure();
+        }, SAVE_FAILURE_REAUTH_DELAY_MS);
+    }
+
+    forceReauthenticationAfterSaveFailure() {
+        const identity = this.getLoggedInIdentity();
+        if (!identity || identity.isTeacher || !this.hasUnsavedChanges()) {
+            this.clearSaveFailureCountdown();
+            return;
+        }
+
+        // 画面をロックする前に、最新の作文を端末へ同期的に残す。
+        this.persistRecoveryDraft(this.createSaveSnapshot());
+        this.reauthenticationRequired = true;
+        this.clearSaveFailureCountdown();
+        if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
+        this.autoSaveTimer = null;
+        this.saveRequested = false;
+
+        window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        window.localStorage.removeItem("genko_studentName");
+        this.genko.setReadOnly(true);
+        $("#writingTypeSelect, #writingTitleInput, #bookNameInput").prop("disabled", true);
+        this.$studentControlPanel.addClass("d-none");
+        $("#login-display-class").text("再ログインが必要");
+        $("#login-display-name").text("通信切断");
+        this.updateSaveStatus("error");
+        this.$loginPassword.val("");
+        $("#login-error")
+            .text("3分以上保存できませんでした。通信を確認して、もう一度ログインしてください。作文はこの端末に保護されています。")
+            .removeClass("d-none");
+        this.$dialogLogin.modal("show");
+        alert("3分以上サーバーへ保存できなかったため、編集を一時停止しました。\n作文はこの端末に保護されています。通信を確認して、もう一度ログインしてください。");
     }
 
     hasUnsavedChanges() {
@@ -1157,6 +1213,7 @@ class Main {
             return Promise.resolve(true);
         }
 
+        if (this.reauthenticationRequired) return Promise.resolve(false);
         if (!this.getLoggedInIdentity()) return Promise.resolve(false);
         this.contentRevision += 1;
         this.persistRecoveryDraft();
@@ -1216,6 +1273,12 @@ class Main {
                         throw new Error(res.message || "保存できませんでした。");
                     }
 
+                    this.clearSaveFailureCountdown();
+                    if (this.reauthenticationRequired) {
+                        allSuccessful = false;
+                        break;
+                    }
+
                     this.lastSavedRevision = Math.max(this.lastSavedRevision, revision);
                     console.log("スプレッドシートへの保存に成功しました");
 
@@ -1229,6 +1292,7 @@ class Main {
                 } catch (err) {
                     allSuccessful = false;
                     this.persistRecoveryDraft();
+                    if (!snapshot.isTeacher) this.startSaveFailureCountdown();
                     console.error("保存エラー:", err);
                     if (!snapshot.isTeacher) this.updateSaveStatus("error");
                     break;
