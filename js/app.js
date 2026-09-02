@@ -3,7 +3,7 @@ import {Settings} from "./settings.js";
 
 // Google Apps Script(GAS)のWebアプリ of のデプロイURLを設定します
 // スプレッドシート連携を有効にするには、ここにURLを記述してください。
-const GAS_URL = "https://script.google.com/macros/s/AKfycbydYWFMAqxBNQ9GEhzkwSzuFe782cJRAFddOrJVzhZWbS0VcHuPz7p1vidcmdpV2QvhoQ/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzA6IKyGP-qhUgIOVTEMmOC9nI-IU0BI6qfl5k8Nt7XgtlIWtSUrQ7PCuqQYCrCD8SdvQ/exec";
 const SESSION_TOKEN_KEY = "genko_sessionToken";
 const RECOVERY_DRAFT_PREFIX = "genko_pendingDraft:";
 let authExpiryHandled = false;

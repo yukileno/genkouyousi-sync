@@ -2,7 +2,7 @@
 
 学校での作文入力・印刷に使うWebアプリの公開用フロントエンドです。
 
-- 公開サイト: https://yukileno.github.io/genkouyousi2/
+- 公開サイト: https://yukileno.github.io/genkouyousi-sync/
 - 元作品: [tsuteto/GenkoyoshiWriter](https://github.com/tsuteto/GenkoyoshiWriter)
 
 この公開リポジトリには、ブラウザへ配信するHTML・CSS・JavaScript・画像・ライブラリだけを置いています。Google Apps Script、テスト、運用設定、スプレッドシートのデータは含みません。
