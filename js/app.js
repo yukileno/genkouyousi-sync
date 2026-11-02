@@ -1,5 +1,5 @@
 import {GenkoYoshi} from "./genkoyoshi.js";
-import {Settings} from "./settings.js";
+import {Settings} from "./settings.js?v=20261102-separated1";
 
 // Google Apps Script(GAS)のWebアプリ of のデプロイURLを設定します
 // スプレッドシート連携を有効にするには、ここにURLを記述してください。
