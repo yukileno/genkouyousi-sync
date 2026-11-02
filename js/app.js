@@ -1333,6 +1333,13 @@ class Main {
                         break;
                     }
 
+                    const currentIdentity = this.getLoggedInIdentity();
+                    if (!snapshot.isTeacher && res.feedback && currentIdentity
+                        && String(currentIdentity.classNumber) === String(snapshot.classNumber)
+                        && String(currentIdentity.studentId) === String(snapshot.studentId)) {
+                        this.updateTeacherComment(res.feedback.teacherComment || "", res.feedback.teacherAdvice || "");
+                    }
+
                     this.lastSavedRevision = Math.max(this.lastSavedRevision, revision);
                     console.log("スプレッドシートへの保存に成功しました");
 
