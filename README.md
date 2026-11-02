@@ -12,3 +12,7 @@
 ## ライセンス
 
 MIT License。詳細は [LICENSE](LICENSE) を参照してください。
+
+## 安定版
+
+利用者指定の安定版: **`stable-2026-11-02`**。対応するコード・復元手順は [STABLE_RELEASE.md](STABLE_RELEASE.md) を参照。
