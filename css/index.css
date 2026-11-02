@@ -716,3 +716,12 @@
 }
 
 @media screen { .paper-print-comment.hide-on-screen { display: none !important; } }
+
+@media screen {
+    #teacher-advice-panel { top: auto; bottom: 24px; right: 90px; width: 300px; max-height: min(60vh, 420px); }
+    #closeTeacherAdviceBtn { float: right; border: 0; background: transparent; color: #49341d; font-size: 24px; line-height: 1; cursor: pointer; }
+    #teacherAdviceBtn { color: #9b6500; background: #fff3c4; }
+}
+@media screen and (max-width: 600px) {
+    #teacher-advice-panel { right: 78px; width: calc(100vw - 94px); bottom: 16px; }
+}
