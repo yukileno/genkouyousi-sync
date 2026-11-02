@@ -5,6 +5,8 @@ import {Settings} from "./settings.js";
 // スプレッドシート連携を有効にするには、ここにURLを記述してください。
 const GAS_URL = "https://script.google.com/macros/s/AKfycbySyn5h8aGz2B9Ye0tGRUro1nzC7QJ2mbhwnRbl8S3UPnRHya78VeniyNoJa-CW7c2o/exec";
 const SESSION_TOKEN_KEY = "genko_sessionToken";
+const LAST_ACTIVITY_KEY = "genko_lastActivity";
+const IDLE_SESSION_MS = 60 * 60 * 1000;
 const RECOVERY_DRAFT_PREFIX = "genko_pendingDraft:";
 const SAVE_FAILURE_REAUTH_DELAY_MS = (() => {
     const defaultDelay = 3 * 60 * 1000;
@@ -238,11 +240,39 @@ class Main {
             window.localStorage.removeItem("genko_password");
             window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
 
+            this.startIdleSessionWatch();
             // ログイン状態を検証
             await this.checkLoginStatus(); 
         } catch (err) {
             console.error("初期化中にエラーが発生しました:", err);
         }
+    }
+
+    startIdleSessionWatch() {
+        const check = (event) => {
+            if (!getSessionToken()) return;
+            const lastActivity = Number(window.sessionStorage.getItem(LAST_ACTIVITY_KEY));
+            if (!lastActivity || Date.now() - lastActivity >= IDLE_SESSION_MS) {
+                if (event && event.cancelable) event.preventDefault();
+                if (event) event.stopImmediatePropagation();
+                this.persistRecoveryDraft();
+                this.genko.setReadOnly(true);
+                handleExpiredSession();
+                return;
+            }
+            if (event && event.isTrusted && ["pointerdown", "keydown", "input", "wheel"].includes(event.type)) {
+                window.sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+            }
+        };
+        ["pointerdown", "keydown", "input", "wheel"].forEach(type => {
+            document.addEventListener(type, check, {capture: true, passive: false});
+        });
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") check();
+        });
+        window.addEventListener("focus", () => check());
+        window.addEventListener("pageshow", () => check());
+        window.setInterval(() => check(), 15000);
     }
 
     onDrawerClicked(e, $drawer) {
@@ -862,6 +892,7 @@ class Main {
 
                     // GASが発行した短時間の入場券だけを、このタブを閉じるまで保持する
                     window.sessionStorage.setItem(SESSION_TOKEN_KEY, res.sessionToken);
+                    window.sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
                     window.localStorage.setItem("genko_classNumber", classNum);
                     window.localStorage.setItem("genko_studentId", studentId);
                     window.localStorage.setItem("genko_studentName", studentName);
