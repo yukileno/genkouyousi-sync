@@ -678,3 +678,39 @@
         font-size: 12px !important;
     }
 }
+
+/* Keep advice visible beside the writing area. */
+@media screen {
+    body.has-teacher-advice { padding-right: 264px !important; }
+    #teacher-advice-panel {
+        position: fixed;
+        top: 80px;
+        right: 16px;
+        width: 232px;
+        max-height: calc(100vh - 190px);
+        overflow-y: auto;
+        z-index: 210;
+        padding: 16px;
+        border: 2px solid #c88325;
+        border-radius: 12px;
+        background: #fffaf0;
+        color: #49341d;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+        text-align: left;
+        writing-mode: horizontal-tb;
+    }
+    #teacher-advice-heading { font-size: 17px; font-weight: bold; margin: 0 0 12px; }
+    #teacher-advice-text { font-size: 16px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+@media screen and (max-width: 900px) {
+    body.has-teacher-advice { padding-right: 0 !important; padding-bottom: 180px !important; }
+    #teacher-advice-panel { top: auto; bottom: 12px; right: 12px; width: calc(100vw - 24px); max-height: 160px; }
+    #teacher-advice-heading { margin-bottom: 6px; }
+}
+@media print {
+    #teacher-advice-panel { display: none !important; }
+}
+
+@media print {
+    .paper-print-comment { display: none !important; }
+}

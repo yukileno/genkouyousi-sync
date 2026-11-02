@@ -10,13 +10,13 @@
         <link href="css/genkoyoshi.css" rel="stylesheet" type="text/css"/>
         <link href="https://fonts.googleapis.com/css?family=Noto+Serif+JP&display=swap" rel="stylesheet">
         <link href="css/fonts.css" rel="stylesheet" type="text/css"/>
-        <link href="css/index.css" rel="stylesheet" type="text/css"/>
+        <link href="css/index.css?v=20261102-advice1" rel="stylesheet" type="text/css"/>
 
         <script src="lib/unistring.js"></script>
         <script src="lib/jquery-3.3.1.min.js"></script>
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
-        <script type="module" src="js/app.js?v=20261102-idle1"></script>
+        <script type="module" src="js/app.js?v=20261102-advice1"></script>
     </head>
 
     <body>
@@ -76,6 +76,10 @@
             </div>
         </div>
 
+        <aside id="teacher-advice-panel" class="d-none" aria-labelledby="teacher-advice-heading">
+            <h2 id="teacher-advice-heading">先生からのアドバイス</h2>
+            <div id="teacher-advice-text" aria-live="polite"></div>
+        </aside>
         <div class="genko"></div>
 
         <!-- 設定タブ -->

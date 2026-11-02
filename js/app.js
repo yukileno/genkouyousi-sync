@@ -1779,6 +1779,9 @@ class Main {
     updateTeacherComment(comment) {
         const hasComment = comment && comment.trim() !== "";
         this.currentTeacherComment = hasComment ? comment : "";
+        $("#teacher-advice-text").text(this.currentTeacherComment);
+        $("#teacher-advice-panel").toggleClass("d-none", !hasComment);
+        $("body").toggleClass("has-teacher-advice", !!hasComment);
 
         this.appendTeacherCommentToFirstPage(this.getPages(), this.currentTeacherComment);
     }
