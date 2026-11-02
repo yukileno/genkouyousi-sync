@@ -6,7 +6,7 @@
         <link rel="stylesheet" href="lib/bootstrap.min.css">
         <link rel="stylesheet" href="css/fonts.css">
         <link rel="stylesheet" href="css/genkoyoshi.css">
-        <link rel="stylesheet" href="css/index.css?v=20261102-advice1">
+        <link rel="stylesheet" href="css/index.css?v=20261102-separated1">
         <style id="print-page-size">@page { size: A4 landscape; margin: 0; }</style>
         
         <script src="lib/jquery-3.3.1.min.js"></script>
@@ -106,7 +106,7 @@
                 overflow-wrap: anywhere !important;
             }
             @media print {
-                .paper-print-comment { display: none !important; }
+                .paper-print-comment.hide-in-print { display: none !important; }
                 #print-status {
                     display: none !important;
                 }
@@ -200,7 +200,7 @@
                     const writingTypeVal = w.writingType || "none";
                     const writingTitleVal = w.writingTitle || "";
                     const bookNameVal = w.bookName || "";
-                    const showTeacherComment = !parsedSettings || !parsedSettings.appSettings || parsedSettings.appSettings.showTeacherComment !== false;
+                    const showTeacherComment = !parsedSettings || !parsedSettings.appSettings || parsedSettings.appSettings.printTeacherComment !== false;
                     const showPrintFooter = !parsedSettings || !parsedSettings.appSettings || parsedSettings.appSettings.showPrintFooter !== false;
                     
                     // 作文の種類の日本語表記マッピング
@@ -239,7 +239,7 @@
                     if (showTeacherComment && teacherComment && $papers.length > 0) {
                         $("<div>")
                             .addClass("paper-print-comment")
-                            .text(`先生から：${teacherComment}`)
+                            .text(`所見：${teacherComment}`)
                             .appendTo($papers.first());
                     }
                 }

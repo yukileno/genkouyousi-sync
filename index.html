@@ -10,13 +10,13 @@
         <link href="css/genkoyoshi.css" rel="stylesheet" type="text/css"/>
         <link href="https://fonts.googleapis.com/css?family=Noto+Serif+JP&display=swap" rel="stylesheet">
         <link href="css/fonts.css" rel="stylesheet" type="text/css"/>
-        <link href="css/index.css?v=20261102-advice1" rel="stylesheet" type="text/css"/>
+        <link href="css/index.css?v=20261102-separated1" rel="stylesheet" type="text/css"/>
 
         <script src="lib/unistring.js"></script>
         <script src="lib/jquery-3.3.1.min.js"></script>
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
-        <script type="module" src="js/app.js?v=20261102-advice1"></script>
+        <script type="module" src="js/app.js?v=20261102-separated1"></script>
     </head>
 
     <body>
@@ -94,13 +94,21 @@
                             <div class="card-body p-2">
                                 <div class="custom-control custom-checkbox mb-2">
                                     <input type="checkbox" id="showTeacherComment" class="custom-control-input" checked>
-                                    <label for="showTeacherComment" class="custom-control-label">先生コメントを表示する</label>
+                                    <label for="showTeacherComment" class="custom-control-label">原稿用紙に所見を表示する</label>
+                                </div>
+                                <div class="custom-control custom-checkbox mb-2">
+                                    <input type="checkbox" id="printTeacherComment" class="custom-control-input" checked>
+                                    <label for="printTeacherComment" class="custom-control-label">所見を印刷する</label>
+                                </div>
+                                <div class="custom-control custom-checkbox mb-2">
+                                    <input type="checkbox" id="showTeacherAdvice" class="custom-control-input" checked>
+                                    <label for="showTeacherAdvice" class="custom-control-label">画面端にアドバイスを表示する</label>
                                 </div>
                                 <div class="custom-control custom-checkbox">
                                     <input type="checkbox" id="showPrintFooter" class="custom-control-input" checked>
                                     <label for="showPrintFooter" class="custom-control-label">名前・題名・ページ番号を表示する</label>
                                 </div>
-                                <small class="d-block mt-2 text-muted">アドバイスは画面にのみ表示され、印刷には含まれません。</small>
+                                <small class="d-block mt-2 text-muted">所見の印刷とアドバイスの画面表示を別々に設定できます。アドバイスは印刷されません。</small>
                             </div>
                         </div>
                     </div>

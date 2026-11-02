@@ -17,6 +17,8 @@ export class Settings {
         this.$selectionStyleType = this.$body.find("#selectionStyleType");
         this.$selectionStyleColors = this.$body.find("#selectionStyleColors");
         this.$showTeacherComment = this.$body.find("#showTeacherComment");
+        this.$printTeacherComment = this.$body.find("#printTeacherComment");
+        this.$showTeacherAdvice = this.$body.find("#showTeacherAdvice");
         this.$showPrintFooter = this.$body.find("#showPrintFooter");
 
         this.params = {
@@ -24,6 +26,8 @@ export class Settings {
             wallpaper: "cover-wood1",
             selectionStyle: GenkoYoshi.SELECTION_STYLE.default,
             showTeacherComment: true,
+            printTeacherComment: true,
+            showTeacherAdvice: true,
             showPrintFooter: true,
         };
     }
@@ -37,6 +41,8 @@ export class Settings {
             wallpaper: this.params.wallpaper,
             selectionStyle: this.genko.selectionStyle,
             showTeacherComment: this.params.showTeacherComment !== false,
+            printTeacherComment: this.params.printTeacherComment !== false,
+            showTeacherAdvice: this.params.showTeacherAdvice !== false,
             showPrintFooter: this.params.showPrintFooter !== false
         };
 
@@ -71,6 +77,12 @@ export class Settings {
             .change(this.onPrintDisplayChanged.bind(this));
         this.$showPrintFooter
             .prop("checked", this.params.showPrintFooter)
+            .change(this.onPrintDisplayChanged.bind(this));
+        this.$printTeacherComment
+            .prop("checked", this.params.printTeacherComment)
+            .change(this.onPrintDisplayChanged.bind(this));
+        this.$showTeacherAdvice
+            .prop("checked", this.params.showTeacherAdvice)
             .change(this.onPrintDisplayChanged.bind(this));
 
         this.$body.find("#font")
@@ -175,6 +187,8 @@ export class Settings {
 
     onPrintDisplayChanged() {
         this.params.showTeacherComment = this.$showTeacherComment.is(":checked");
+        this.params.printTeacherComment = this.$printTeacherComment.is(":checked");
+        this.params.showTeacherAdvice = this.$showTeacherAdvice.is(":checked");
         this.params.showPrintFooter = this.$showPrintFooter.is(":checked");
         this.main.refreshScreenPrintDetails();
         this.main.triggerAutoSaveToServer(true);
@@ -256,6 +270,8 @@ export class Settings {
             $.extend(this.params, appSettings);
         }
         this.params.showTeacherComment = this.params.showTeacherComment !== false;
+        this.params.printTeacherComment = this.params.printTeacherComment !== false;
+        this.params.showTeacherAdvice = this.params.showTeacherAdvice !== false;
         this.params.showPrintFooter = this.params.showPrintFooter !== false;
 
         // UI要素の表示を更新
@@ -274,6 +290,8 @@ export class Settings {
 
         this.$wallpaper.val(this.params.wallpaper);
         this.$showTeacherComment.prop("checked", this.params.showTeacherComment);
+        this.$printTeacherComment.prop("checked", this.params.printTeacherComment);
+        this.$showTeacherAdvice.prop("checked", this.params.showTeacherAdvice);
         this.$showPrintFooter.prop("checked", this.params.showPrintFooter);
         this.$body.find("#font").val(this.genko.featuringFont);
         this.$body.find("#fontRoman").val(this.genko.featuringFontRoman);

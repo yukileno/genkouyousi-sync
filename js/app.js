@@ -135,6 +135,7 @@ class Main {
         this.$loginPassword = $("#login-password"); // パスワードフィールド
         this.$teacherSidebar = $("#teacher-sidebar"); // 教師用児童切り替えサイドバー
         this.currentTeacherComment = "";
+        this.currentTeacherAdvice = "";
         this.currentPrintStudent = null;
         this.teacherSelectionRevision = 0;
 
@@ -647,6 +648,8 @@ class Main {
                 wallpaper: this.settings.params.wallpaper,
                 lightColor: this.settings.params.lightColor,
                 showTeacherComment: this.settings.params.showTeacherComment !== false,
+                printTeacherComment: this.settings.params.printTeacherComment !== false,
+                showTeacherAdvice: this.settings.params.showTeacherAdvice !== false,
                 showPrintFooter: this.settings.params.showPrintFooter !== false
             },
             isCompleted
@@ -680,6 +683,7 @@ class Main {
     }
 
     refreshScreenPrintDetails() {
+        this.refreshAdviceVisibility();
         const $papers = this.getPages();
         const printData = this.getCurrentPrintData();
         this.appendPrintFooters($papers, printData);
@@ -730,7 +734,7 @@ class Main {
         $("#bookNameInput").val(data.bookName);
         this.genko.setText(data.text);
         this.genko.refresh();
-        this.updateTeacherComment(data.teacherComment);
+        this.updateTeacherComment(data.teacherComment, data.teacherAdvice);
         this.refreshScreenPrintDetails();
         this.isCompletedStatus = false;
         this.updateCompleteButtonUi();
@@ -789,11 +793,13 @@ class Main {
         $(".paper-print-comment").remove();
 
         const normalizedComment = (comment || "").toString().trim();
-        if (this.settings.params.showTeacherComment === false || !$papers || $papers.length === 0 || !normalizedComment) return;
+        if (!$papers || $papers.length === 0 || !normalizedComment) return;
 
         $("<div>")
             .addClass("paper-print-comment")
-            .text(`先生から：${normalizedComment}`)
+            .toggleClass("hide-in-print", this.settings.params.printTeacherComment === false)
+            .toggleClass("hide-on-screen", this.settings.params.showTeacherComment === false)
+            .text(`所見：${normalizedComment}`)
             .appendTo($papers.first());
     }
 
@@ -961,7 +967,7 @@ class Main {
                             this.genko.refresh();
                             
                             // 先生からのアドバイスを表示・制御する
-                            this.updateTeacherComment(data.teacherComment || "");
+                            this.updateTeacherComment(data.teacherComment || "", data.teacherAdvice);
                             
                             console.log("スプレッドシートからの作文データのロードに成功しました");
                         } else {
@@ -1632,7 +1638,9 @@ class Main {
                         // 通信中の保存より古い設定が返ってきても、コメントやフッターを消さない。
                         const currentPrintPreferences = {
                             showTeacherComment: this.settings.params.showTeacherComment !== false,
-                            showPrintFooter: this.settings.params.showPrintFooter !== false
+                            printTeacherComment: this.settings.params.printTeacherComment !== false,
+                showTeacherAdvice: this.settings.params.showTeacherAdvice !== false,
+                showPrintFooter: this.settings.params.showPrintFooter !== false
                         };
                         this.settings.apply(parsedSettings.genkoSettings, {
                             ...(parsedSettings.appSettings || {}),
@@ -1667,7 +1675,7 @@ class Main {
                 this.genko.refresh();
                 
                 // アドバイスの反映
-                this.updateTeacherComment(w.teacherComment || "");
+                this.updateTeacherComment(w.teacherComment || "", w.teacherAdvice);
                 
                 // 児童用画面と同じ共通処理で、画面上にも印刷用フッターを表示
                 this.scheduleScreenPrintDetails();
@@ -1776,14 +1784,22 @@ class Main {
         }
     }
 
-    updateTeacherComment(comment) {
+    updateTeacherComment(comment, advice = "") {
         const hasComment = comment && comment.trim() !== "";
         this.currentTeacherComment = hasComment ? comment : "";
-        $("#teacher-advice-text").text(this.currentTeacherComment);
-        $("#teacher-advice-panel").toggleClass("d-none", !hasComment);
-        $("body").toggleClass("has-teacher-advice", !!hasComment);
+        const normalizedAdvice = (advice || "").toString().trim();
+        this.currentTeacherAdvice = normalizedAdvice;
+        this.refreshAdviceVisibility();
+
 
         this.appendTeacherCommentToFirstPage(this.getPages(), this.currentTeacherComment);
+    }
+
+    refreshAdviceVisibility() {
+        const visible = !!this.currentTeacherAdvice && this.settings.params.showTeacherAdvice !== false;
+        $("#teacher-advice-text").text(this.currentTeacherAdvice);
+        $("#teacher-advice-panel").toggleClass("d-none", !visible);
+        $("body").toggleClass("has-teacher-advice", visible);
     }
 
     onWritingTypeChanged(e) {

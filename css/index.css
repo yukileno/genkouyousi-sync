@@ -712,5 +712,7 @@
 }
 
 @media print {
-    .paper-print-comment { display: none !important; }
+    .paper-print-comment.hide-in-print { display: none !important; }
 }
+
+@media screen { .paper-print-comment.hide-on-screen { display: none !important; } }
