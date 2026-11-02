@@ -16,7 +16,7 @@
         <script src="lib/jquery-3.3.1.min.js"></script>
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
-        <script type="module" src="js/app.js?v=20261102-connection1"></script>
+        <script type="module" src="js/app.js?v=20261102-environment1"></script>
     </head>
 
     <body>
@@ -37,18 +37,21 @@
 
         <!-- 作文の種類・題名入力エリア -->
         <div id="writing-meta-container" class="d-none" style="margin: 20px auto 10px auto; max-width: 600px; padding: 0 15px; position: relative; z-index: 100; display: flex; flex-direction: column; gap: 10px;">
-            <!-- 作文の種類選択 -->
+            <!-- 環境についての考えを選択 -->
+            <p class="mb-0 font-weight-bold">環境を守るためには…</p>
             <div class="input-group shadow-sm">
                 <div class="input-group-prepend">
-                    <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">作文の種類</span>
+                    <span class="input-group-text bg-white text-dark border-right-0 font-weight-bold" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); width: 110px; justify-content: center;">自分の考え</span>
                 </div>
-                <select id="writingTypeSelect" class="form-control custom-select" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
-                    <option value="none">指定なし</option>
-                    <option value="課題図書">読書感想文（課題図書）</option>
-                    <option value="自由図書">読書感想文（自由図書）</option>
-                    <option value="人権">人権作文</option>
-                    <option value="健康">健康作文</option>
-                    <option value="交通">交通安全作文</option>
+                <select id="writingTypeSelect" aria-label="環境を守るためには、自分の考えを選んでください" class="form-control custom-select" style="font-family: 'Noto Serif JP', 'Yu Mincho', serif; border-color: var(--grid-color, #28a745); border-left: none; box-shadow: none;">
+                    <option value="none" hidden disabled selected>選んでください</option>
+                    <option value="人を入れる">人を入れる</option>
+                    <option value="人を入れない">人を入れない</option>
+                    <option value="課題図書" hidden>読書感想文（課題図書）</option>
+                    <option value="自由図書" hidden>読書感想文（自由図書）</option>
+                    <option value="人権" hidden>人権作文</option>
+                    <option value="健康" hidden>健康作文</option>
+                    <option value="交通" hidden>交通安全作文</option>
                 </select>
             </div>
             
