@@ -724,4 +724,238 @@
 }
 @media screen and (max-width: 600px) {
     #teacher-advice-panel { right: 78px; width: calc(100vw - 94px); bottom: 16px; }
+
+    #completion-celebration-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+}
+
+/* 完成児童の祝福演出（一瞬の紙吹雪＋ポップアップ）＆常時表示の花丸ハンコ */
+@media screen {
+    #completion-celebration-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .confetti-container {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+
+    .confetti-piece {
+        position: absolute;
+        top: -20px;
+        width: 12px;
+        height: 22px;
+        opacity: 0.95;
+        border-radius: 3px;
+        animation: confetti-fall linear forwards;
+    }
+
+    @keyframes confetti-fall {
+        0% {
+            transform: translate3d(0, -20px, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+            opacity: 1;
+        }
+        80% {
+            opacity: 1;
+        }
+        100% {
+            transform: translate3d(var(--confetti-drift, 40px), 105vh, 0) rotateX(720deg) rotateY(360deg) rotateZ(540deg);
+            opacity: 0;
+        }
+    }
+
+    .celebration-popup-card {
+        position: relative;
+        background: radial-gradient(circle at top, #fffef8 0%, #fff3cd 100%);
+        border: 4px solid #f59f00;
+        border-radius: 28px;
+        padding: 28px 48px;
+        text-align: center;
+        box-shadow: 0 16px 50px rgba(245, 159, 0, 0.45), 0 0 0 8px rgba(255, 255, 255, 0.85);
+        writing-mode: horizontal-tb;
+        animation: celebration-pop-in-out 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes celebration-pop-in-out {
+        0% {
+            transform: scale(0.3) translateY(40px);
+            opacity: 0;
+        }
+        14% {
+            transform: scale(1.08) translateY(-6px);
+            opacity: 1;
+        }
+        22% {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+        82% {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(0.85) translateY(-20px);
+            opacity: 0;
+        }
+    }
+
+    .celebration-sparkles {
+        font-size: 32px;
+        line-height: 1.1;
+        margin-bottom: 4px;
+        animation: celebration-bounce 0.6s ease-in-out infinite alternate;
+    }
+
+    .celebration-hanamaru-icon {
+        font-size: 76px;
+        line-height: 1.1;
+        margin: 4px 0 8px;
+        filter: drop-shadow(0 4px 10px rgba(220, 53, 69, 0.3));
+    }
+
+    .celebration-title {
+        font-family: "Noto Serif JP", "Yu Mincho", serif;
+        font-size: 34px;
+        font-weight: 900;
+        color: #d6336c;
+        text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(214, 51, 108, 0.25);
+        margin-bottom: 6px;
+        letter-spacing: 0.05em;
+    }
+
+    .celebration-subtitle {
+        font-family: "Noto Serif JP", "Yu Mincho", serif;
+        font-size: 20px;
+        font-weight: bold;
+        color: #b45309;
+    }
+
+    @keyframes celebration-bounce {
+        from { transform: translateY(0) scale(1); }
+        to { transform: translateY(-6px) scale(1.08); }
+    }
+
+    /* 原稿用紙右上に常時表示される「完成（たいへんよくできました）」花丸ハンコ */
+    .paper-completion-stamp {
+        position: absolute;
+        top: 6mm;
+        right: 8mm;
+        z-index: 25;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        writing-mode: horizontal-tb;
+        direction: ltr;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 112px;
+        height: 112px;
+        border: 3.5px solid #e03131;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.94) 0%, rgba(255, 245, 245, 0.92) 75%, rgba(255, 227, 227, 0.9) 100%);
+        color: #e03131;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 0 5px rgba(224, 49, 49, 0.35), 0 6px 18px rgba(224, 49, 49, 0.22);
+        transform: rotate(-10deg);
+        animation: stamp-appear 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+    }
+
+    .paper-completion-stamp::before {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border: 1.5px dashed rgba(224, 49, 49, 0.65);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    @keyframes stamp-appear {
+        0% {
+            transform: scale(1.9) rotate(-22deg);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1) rotate(-10deg);
+            opacity: 1;
+        }
+    }
+
+    .paper-completion-stamp .stamp-hanamaru {
+        font-size: 28px;
+        line-height: 1;
+        margin-bottom: 1px;
+    }
+
+    .paper-completion-stamp .stamp-main-text {
+        font-family: "Noto Serif JP", "Yu Mincho", serif;
+        font-size: 25px;
+        font-weight: 900;
+        line-height: 1.1;
+        letter-spacing: 0.06em;
+        color: #d92525;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .paper-completion-stamp .stamp-sub-text {
+        font-family: "Noto Serif JP", "Yu Mincho", sans-serif;
+        font-size: 9.5px;
+        font-weight: 800;
+        line-height: 1.15;
+        color: #c92a2a;
+        margin-top: 3px;
+        padding: 1px 6px;
+        border-top: 1.5px solid rgba(224, 49, 49, 0.6);
+        border-bottom: 1.5px solid rgba(224, 49, 49, 0.6);
+        white-space: nowrap;
+    }
+
+    /* アドバイスパネルが「完成！」のときの特別スタイル */
+    #teacher-advice-panel.is-completed-advice {
+        border-color: #f59f00;
+        border-width: 3px;
+        background: linear-gradient(180deg, #fff9db 0%, #fffaf0 100%);
+        box-shadow: 0 6px 22px rgba(245, 159, 0, 0.25);
+    }
+
+    .advice-completed-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin: -4px 0 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #f59f00 100%);
+        color: #fff;
+        font-family: "Noto Serif JP", "Yu Mincho", sans-serif;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        box-shadow: 0 2px 8px rgba(245, 159, 0, 0.35);
+    }
+}
+
+@media print {
+    #completion-celebration-overlay,
+    .paper-completion-stamp {
+        display: none !important;
+    }
 }

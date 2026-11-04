@@ -10,13 +10,13 @@
         <link href="css/genkoyoshi.css" rel="stylesheet" type="text/css"/>
         <link href="https://fonts.googleapis.com/css?family=Noto+Serif+JP&display=swap" rel="stylesheet">
         <link href="css/fonts.css" rel="stylesheet" type="text/css"/>
-        <link href="css/index.css?v=20261102-feedback1" rel="stylesheet" type="text/css"/>
+        <link href="css/index.css?v=20261104-celebration1" rel="stylesheet" type="text/css"/>
 
         <script src="lib/unistring.js"></script>
         <script src="lib/jquery-3.3.1.min.js"></script>
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
-        <script type="module" src="js/app.js?v=20261102-feedback1"></script>
+        <script type="module" src="js/app.js?v=20261104-celebration1"></script>
     </head>
 
     <body>
@@ -81,6 +81,15 @@
             <h2 id="teacher-advice-heading">先生からのアドバイス</h2>
             <div id="teacher-advice-text" aria-live="polite"></div>
         </aside>
+        <div id="completion-celebration-overlay" class="d-none" aria-hidden="true">
+            <div class="confetti-container" id="confetti-container"></div>
+            <div class="celebration-popup-card">
+                <div class="celebration-sparkles">✨🎉✨</div>
+                <div class="celebration-hanamaru-icon">💮</div>
+                <div class="celebration-title">完成おめでとう！</div>
+                <div class="celebration-subtitle">たいへんよくできました！</div>
+            </div>
+        </div>
         <div class="genko"></div>
 
         <!-- 設定タブ -->

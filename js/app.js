@@ -417,7 +417,7 @@ class Main {
                 //useCORS: true,
                 //allowTaint: true,
                 windowWidth: $(".genko").width(),
-                ignoreElements: elem => $(elem).is(".genko-ime, .genko-caret"),
+                ignoreElements: elem => $(elem).is(".genko-ime, .genko-caret, .paper-completion-stamp"),
                 onclone: (doc) => {
                     $(doc).find(".genko-paper").css({"box-shadow": "none"}).removeClass("newline-visible");
                     $(doc).find(".char-body:has(.fw-space)").html("<div/>");
@@ -703,6 +703,7 @@ class Main {
         const printData = this.getCurrentPrintData();
         this.appendPrintFooters($papers, printData);
         this.appendTeacherCommentToFirstPage($papers, printData?.teacherComment || "");
+        this.appendCompletionStampToFirstPage($papers);
     }
 
     scheduleScreenPrintDetails() {
@@ -775,7 +776,23 @@ class Main {
             rows: 5
         })
             .val(data.teacherComment)
-            .on("input", e => this.updateTeacherComment($(e.currentTarget).val()))
+            .on("input", e => this.updateTeacherComment($(e.currentTarget).val(), $("#dev-teacher-advice").val() || ""))
+            .appendTo($toolbar);
+
+        $("<label>")
+            .attr("for", "dev-teacher-advice")
+            .css("margin-top", "8px")
+            .text("先生からのアドバイス（「完成！」で祝福演出）")
+            .appendTo($toolbar);
+
+        $("<textarea>", {
+            id: "dev-teacher-advice",
+            class: "form-control",
+            rows: 3,
+            placeholder: "完成！文句なしの素晴らしい意見文になりました。"
+        })
+            .val(data.teacherAdvice || "")
+            .on("input", e => this.updateTeacherComment($commentInput.val(), $(e.currentTarget).val()))
             .appendTo($toolbar);
 
         const $actions = $("<div>").addClass("dev-toolbar-actions").appendTo($toolbar);
@@ -1816,6 +1833,8 @@ class Main {
 
 
         this.appendTeacherCommentToFirstPage(this.getPages(), this.currentTeacherComment);
+        this.appendCompletionStampToFirstPage(this.getPages());
+        this.checkAndCelebrateCompletion();
     }
 
     refreshAdviceVisibility() {
@@ -1826,6 +1845,99 @@ class Main {
         $("#teacher-advice-text").text(this.currentTeacherAdvice);
         $("#teacher-advice-panel").toggleClass("d-none", !visible);
         $("body").removeClass("has-teacher-advice");
+        this.updateAdviceCompletedBanner();
+    }
+
+    isAdviceCompleted(adviceText) {
+        const text = (adviceText || "").toString().trim();
+        return /^([👑💮🎉✨]*\s*)?完成[！!]/.test(text);
+    }
+
+    updateAdviceCompletedBanner() {
+        const isCompleted = this.isAdviceCompleted(this.currentTeacherAdvice);
+        const $panel = $("#teacher-advice-panel");
+        $panel.toggleClass("is-completed-advice", isCompleted);
+        $panel.find(".advice-completed-banner").remove();
+        if (isCompleted) {
+            $("<div>")
+                .addClass("advice-completed-banner")
+                .text("💮 完成！たいへんよくできました")
+                .prependTo($panel);
+        }
+    }
+
+    appendCompletionStampToFirstPage($papers) {
+        $(".paper-completion-stamp").remove();
+        if (!$papers || $papers.length === 0 || !this.isAdviceCompleted(this.currentTeacherAdvice)) return;
+
+        const $stamp = $("<div>")
+            .addClass("paper-completion-stamp")
+            .attr("aria-label", "完成 たいへんよくできました");
+        $("<div>").addClass("stamp-hanamaru").text("💮").appendTo($stamp);
+        $("<div>").addClass("stamp-main-text").text("完成").appendTo($stamp);
+        $("<div>").addClass("stamp-sub-text").text("たいへんよくできました").appendTo($stamp);
+
+        $stamp.appendTo($papers.first());
+    }
+
+    checkAndCelebrateCompletion() {
+        const nowCompleted = this.isAdviceCompleted(this.currentTeacherAdvice);
+        if (nowCompleted && !this._wasAdviceCompleted) {
+            this.playCompletionCelebration();
+        }
+        this._wasAdviceCompleted = nowCompleted;
+    }
+
+    playCompletionCelebration() {
+        const $overlay = $("#completion-celebration-overlay");
+        const $confettiContainer = $("#confetti-container");
+        if (!$overlay.length || !$confettiContainer.length) return;
+
+        if (this.celebrationTimer) {
+            clearTimeout(this.celebrationTimer);
+            this.celebrationTimer = null;
+        }
+
+        $confettiContainer.empty();
+        const colors = ["#ff6b6b", "#fcc419", "#51cf66", "#339af0", "#cc5de8", "#ff922b", "#f06595"];
+        const pieceCount = 70;
+
+        for (let i = 0; i < pieceCount; i++) {
+            const left = Math.random() * 100;
+            const delay = Math.random() * 0.7;
+            const duration = 1.7 + Math.random() * 1.1;
+            const drift = (Math.random() - 0.5) * 220;
+            const color = colors[i % colors.length];
+            const width = 8 + Math.random() * 8;
+            const height = 14 + Math.random() * 12;
+
+            $("<div>")
+                .addClass("confetti-piece")
+                .css({
+                    left: `${left}%`,
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    backgroundColor: color,
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${duration}s`,
+                    "--confetti-drift": `${drift}px`
+                })
+                .appendTo($confettiContainer);
+        }
+
+        const $card = $overlay.find(".celebration-popup-card");
+        $card.css("animation", "none");
+        if ($card[0]) void $card[0].offsetWidth;
+        $card.css("animation", "");
+
+        $overlay.removeClass("d-none");
+
+        this.celebrationTimer = setTimeout(() => {
+            $overlay.addClass("d-none");
+            $confettiContainer.empty();
+            this.celebrationTimer = null;
+        }, 2900);
+    }
     }
 
     onWritingTypeChanged(e) {
