@@ -136,6 +136,21 @@ class Main {
         this.$teacherSidebar = $("#teacher-sidebar"); // 教師用児童切り替えサイドバー
         this.currentTeacherComment = "";
         this.currentTeacherAdvice = "";
+        this.teacherAdviceOpen = false;
+        $("#teacherAdviceBtn").on("click", () => {
+            this.teacherAdviceOpen = !this.teacherAdviceOpen;
+            this.refreshAdviceVisibility();
+        });
+        $("#closeTeacherAdviceBtn").on("click", () => {
+            this.teacherAdviceOpen = false;
+            this.refreshAdviceVisibility();
+        });
+        document.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                this.teacherAdviceOpen = false;
+                this.refreshAdviceVisibility();
+            }
+        });
         this.currentPrintStudent = null;
         this.teacherSelectionRevision = 0;
 
@@ -1318,6 +1333,13 @@ class Main {
                         break;
                     }
 
+                    const currentIdentity = this.getLoggedInIdentity();
+                    if (!snapshot.isTeacher && res.feedback && currentIdentity
+                        && String(currentIdentity.classNumber) === String(snapshot.classNumber)
+                        && String(currentIdentity.studentId) === String(snapshot.studentId)) {
+                        this.updateTeacherComment(res.feedback.teacherComment || "", res.feedback.teacherAdvice || "");
+                    }
+
                     this.lastSavedRevision = Math.max(this.lastSavedRevision, revision);
                     console.log("スプレッドシートへの保存に成功しました");
 
@@ -1788,6 +1810,7 @@ class Main {
         const hasComment = comment && comment.trim() !== "";
         this.currentTeacherComment = hasComment ? comment : "";
         const normalizedAdvice = (advice || "").toString().trim();
+        if (this.currentTeacherAdvice !== normalizedAdvice) this.teacherAdviceOpen = false;
         this.currentTeacherAdvice = normalizedAdvice;
         this.refreshAdviceVisibility();
 
@@ -1796,10 +1819,13 @@ class Main {
     }
 
     refreshAdviceVisibility() {
-        const visible = !!this.currentTeacherAdvice && this.settings.params.showTeacherAdvice !== false;
+        const available = !!this.currentTeacherAdvice && this.settings.params.showTeacherAdvice !== false;
+        if (!available) this.teacherAdviceOpen = false;
+        const visible = available && this.teacherAdviceOpen;
+        $("#teacherAdviceBtn").toggleClass("d-none", !available).attr("aria-expanded", String(visible));
         $("#teacher-advice-text").text(this.currentTeacherAdvice);
         $("#teacher-advice-panel").toggleClass("d-none", !visible);
-        $("body").toggleClass("has-teacher-advice", visible);
+        $("body").removeClass("has-teacher-advice");
     }
 
     onWritingTypeChanged(e) {
