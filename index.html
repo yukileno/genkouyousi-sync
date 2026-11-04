@@ -10,13 +10,13 @@
         <link href="css/genkoyoshi.css" rel="stylesheet" type="text/css"/>
         <link href="https://fonts.googleapis.com/css?family=Noto+Serif+JP&display=swap" rel="stylesheet">
         <link href="css/fonts.css" rel="stylesheet" type="text/css"/>
-        <link href="css/index.css?v=20261104-celebration1" rel="stylesheet" type="text/css"/>
+        <link href="css/index.css?v=20261102-separated1" rel="stylesheet" type="text/css"/>
 
         <script src="lib/unistring.js"></script>
         <script src="lib/jquery-3.3.1.min.js"></script>
         <script src="lib/bootstrap.bundle.min.js"></script>
         <script src="lib/html2canvas.min.js"></script>
-        <script type="module" src="js/app.js?v=20261104-celebration1"></script>
+        <script type="module" src="js/app.js?v=20261102-separated1"></script>
     </head>
 
     <body>
@@ -77,19 +77,9 @@
         </div>
 
         <aside id="teacher-advice-panel" class="d-none" aria-labelledby="teacher-advice-heading">
-            <button id="closeTeacherAdviceBtn" type="button" aria-label="アドバイスを閉じる">×</button>
             <h2 id="teacher-advice-heading">先生からのアドバイス</h2>
             <div id="teacher-advice-text" aria-live="polite"></div>
         </aside>
-        <div id="completion-celebration-overlay" class="d-none" aria-hidden="true">
-            <div class="confetti-container" id="confetti-container"></div>
-            <div class="celebration-popup-card">
-                <div class="celebration-sparkles">✨🎉✨</div>
-                <div class="celebration-hanamaru-icon">💮</div>
-                <div class="celebration-title">完成おめでとう！</div>
-                <div class="celebration-subtitle">たいへんよくできました！</div>
-            </div>
-        </div>
         <div class="genko"></div>
 
         <!-- 設定タブ -->
@@ -112,7 +102,7 @@
                                 </div>
                                 <div class="custom-control custom-checkbox mb-2">
                                     <input type="checkbox" id="showTeacherAdvice" class="custom-control-input" checked>
-                                    <label for="showTeacherAdvice" class="custom-control-label">アドバイスの電球マークを表示する</label>
+                                    <label for="showTeacherAdvice" class="custom-control-label">画面端にアドバイスを表示する</label>
                                 </div>
                                 <div class="custom-control custom-checkbox">
                                     <input type="checkbox" id="showPrintFooter" class="custom-control-input" checked>
@@ -455,7 +445,6 @@
 
         <!-- 右下ボタン -->
         <div class="right-down-control-pane">
-            <button id="teacherAdviceBtn" type="button" class="btn btn-desktop d-none" data-label="アドバイス" aria-label="先生からのアドバイス" aria-controls="teacher-advice-panel" aria-expanded="false"><i class="fa fa-lightbulb-o" aria-hidden="true"></i></button>
             <div id="undoBtn" class="btn btn-desktop btn-desktop-label4" data-label="取り消す"><i class="fa fa-undo"></i></div>
             <div id="redoBtn" class="btn btn-desktop btn-desktop-label4" data-label="やり直す"><i class="fa fa-undo fa-flip-horizontal"></i></div>
             <div id="fullscreenBtn" class="btn btn-desktop btn-desktop-label5" data-label="全画面表示">
